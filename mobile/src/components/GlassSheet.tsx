@@ -1,4 +1,3 @@
-import { BlurView } from "expo-blur";
 import type { ReactNode } from "react";
 import {
   Modal,
@@ -14,18 +13,18 @@ import {
 import { c, radius } from "../theme";
 
 /**
- * Glassmorphic bottom sheet — ported from clip-merged's `ui/sheet.tsx`.
+ * Bottom sheet — ported from clip-merged's `ui/sheet.tsx`, minus the blur.
  *
- * Kept the same visual DNA (frosted BlurView on iOS, 34px top corners, blur
- * intensity 42, the light top-edge highlight, opaque Android fallback), but made
- * it self-contained for Otto: it's a controlled `Modal` (no expo-router
- * formSheet), themed from `src/theme.ts` (dark), and has no external icon/token
- * deps. Only dependency is `expo-blur`.
+ * The sheet body is TRANSPARENT on iOS (no BlurView / frosted fill) and OPAQUE
+ * on Android (blur isn't dependable there). It keeps the sheet's shape DNA —
+ * 34px top corners, grabber, the light top-edge highlight — and a controlled
+ * `Modal` (transparent) so it slides up over a dimmed backdrop. No external
+ * deps.
  *
  * Usage:
  *   const [open, setOpen] = useState(false);
  *   <GlassBottomSheet visible={open} onClose={() => setOpen(false)}>
- *     <SheetHeader title="Wallet" subtitle="…" onClose={() => setOpen(false)} />
+ *     <SheetHeader title="…" subtitle="…" onClose={() => setOpen(false)} />
  *     <View style={{ paddingHorizontal: SHEET_PADDING_X }}>…</View>
  *   </GlassBottomSheet>
  */
@@ -35,49 +34,34 @@ export const SHEET_HEADER_TOP = 20;
 export const SHEET_TITLE_GAP = 8;
 export const SHEET_BOTTOM = 32;
 export const SHEET_CORNER_RADIUS = 34;
-export const SHEET_BLUR_INTENSITY = 42;
 
-/** The frosted-glass sheet body (blur on iOS, opaque fallback elsewhere). */
-function GlassBody({
+/** The sheet body: transparent on iOS, opaque fallback on Android. */
+function SheetBody({
   children,
   fallback = false,
 }: {
   children: ReactNode;
   fallback?: boolean;
 }) {
+  const opaque = Platform.OS !== "ios" || fallback;
   const rootStyle: StyleProp<ViewStyle> = {
     borderTopLeftRadius: SHEET_CORNER_RADIUS,
     borderTopRightRadius: SHEET_CORNER_RADIUS,
     overflow: "hidden",
     maxHeight: "88%",
+    backgroundColor: opaque ? c.surface : "transparent",
   };
 
-  const chrome = (
-    <>
+  return (
+    <View style={rootStyle}>
       {/* grabber */}
       <View style={s.grabberWrap} pointerEvents="none">
         <View style={s.grabber} />
       </View>
-      {/* top-edge highlight — the light rim that reads as a pane of glass */}
+      {/* top-edge highlight — the light rim that reads as a pane's edge */}
       <View pointerEvents="none" style={s.topHighlight} />
-    </>
-  );
-
-  if (Platform.OS !== "ios" || fallback) {
-    return (
-      <View style={[rootStyle, { backgroundColor: c.surface }]}>
-        {chrome}
-        {children}
-      </View>
-    );
-  }
-  return (
-    <BlurView style={rootStyle} intensity={SHEET_BLUR_INTENSITY} tint="dark">
-      {/* faint fill so the blur has body over a dark app */}
-      <View pointerEvents="none" style={s.blurFill} />
-      {chrome}
       {children}
-    </BlurView>
+    </View>
   );
 }
 
@@ -94,7 +78,7 @@ export function GlassBottomSheet({
   children: ReactNode;
   /** Scroll the body (long sheets). Default false = fit-to-content. */
   scroll?: boolean;
-  /** Force the opaque non-glass look. */
+  /** Force the opaque look on iOS too. */
   fallback?: boolean;
   contentStyle?: StyleProp<ViewStyle>;
 }) {
@@ -121,7 +105,7 @@ export function GlassBottomSheet({
     >
       <View style={s.backdrop}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Close sheet" />
-        <GlassBody fallback={fallback}>{body}</GlassBody>
+        <SheetBody fallback={fallback}>{body}</SheetBody>
       </View>
     </Modal>
   );
@@ -187,14 +171,6 @@ export function SheetDivider({ inset = SHEET_PADDING_X }: { inset?: number }) {
 
 const s = StyleSheet.create({
   backdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.55)" },
-  blurFill: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "rgba(20,22,29,0.35)",
-  },
   grabberWrap: { alignItems: "center", paddingTop: 8 },
   grabber: { width: 40, height: 5, borderRadius: radius.pill, backgroundColor: "rgba(255,255,255,0.22)" },
   topHighlight: {

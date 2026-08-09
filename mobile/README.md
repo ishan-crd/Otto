@@ -31,10 +31,11 @@ export EXPO_PUBLIC_OTTO_API=http://$(ipconfig getifaddr en0):8787   # then: pnpm
   calm + trustworthy, with monospace tabular numbers + directional money color
   as the one crypto-native signature. Change the palette here in one place.
 - `src/api.ts` — typed Otto backend client + the localhost gotcha note.
-- `src/components/GlassSheet.tsx` — glassmorphic bottom sheet ported from
-  clip-merged (frosted BlurView, 34px corners, top-edge highlight; opaque
-  Android fallback). Self-contained, themed, controlled via `visible`/`onClose`.
-  Live example wired to the hero's "view breakdown ›". Usage:
+- `src/components/GlassSheet.tsx` — bottom sheet ported from clip-merged
+  (34px corners, grabber, top-edge highlight). Transparent body on iOS, opaque
+  fallback on Android. No blur, no external deps. Controlled via
+  `visible`/`onClose`. Live example wired to the hero's "view breakdown ›".
+  Usage:
 
   ```tsx
   const [open, setOpen] = useState(false);
