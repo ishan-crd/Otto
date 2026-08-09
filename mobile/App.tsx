@@ -18,6 +18,12 @@ import {
   type LedgerEntry,
   type WalletSnapshot,
 } from "./src/api";
+import {
+  GlassBottomSheet,
+  SheetDivider,
+  SheetHeader,
+  SHEET_PADDING_X,
+} from "./src/components/GlassSheet";
 
 export default function App() {
   const [wallet, setWallet] = useState<WalletSnapshot | null>(null);
@@ -27,6 +33,7 @@ export default function App() {
   const [running, setRunning] = useState(false);
   const [blocked, setBlocked] = useState<string | null>(null);
   const [offline, setOffline] = useState(false);
+  const [showBreakdown, setShowBreakdown] = useState(false);
   const seen = useRef(new Set<string>());
 
   const poll = useCallback(async () => {
@@ -110,6 +117,9 @@ export default function App() {
             <Text style={[s.legend, { color: c.earn }]}>↑ earned {usd(earned)}</Text>
             <Text style={[s.legend, { color: c.spend }]}>↓ spent {usd(spent)}</Text>
           </View>
+          <Pressable onPress={() => setShowBreakdown(true)} hitSlop={8}>
+            <Text style={s.breakdownLink}>view breakdown ›</Text>
+          </Pressable>
         </View>
 
         {/* Control — give Otto a goal */}
@@ -184,7 +194,44 @@ export default function App() {
           Otto · autonomous x402 micropayments on Algorand
         </Text>
       </ScrollView>
+
+      {/* Glassmorphic bottom sheet (ported from clip-merged) */}
+      <GlassBottomSheet visible={showBreakdown} onClose={() => setShowBreakdown(false)}>
+        <SheetHeader
+          title="Wallet breakdown"
+          subtitle={`rail · ${wallet?.rail ?? "…"}`}
+          onClose={() => setShowBreakdown(false)}
+        />
+        <View style={{ paddingHorizontal: SHEET_PADDING_X, paddingTop: space.md }}>
+          <BreakdownRow label="Topped up" value={usd(wallet?.toppedUp.usdc ?? 0)} color={c.text} />
+          <SheetDivider />
+          <BreakdownRow label="Earned" value={`+ ${usd(earned)}`} color={c.earn} />
+          <SheetDivider />
+          <BreakdownRow label="Spent" value={`− ${usd(spent)}`} color={c.spend} />
+          <SheetDivider />
+          <BreakdownRow label="Balance" value={usd(wallet?.balance.usdc ?? 0)} color={c.text} strong />
+        </View>
+      </GlassBottomSheet>
     </SafeAreaView>
+  );
+}
+
+function BreakdownRow({
+  label,
+  value,
+  color,
+  strong,
+}: {
+  label: string;
+  value: string;
+  color: string;
+  strong?: boolean;
+}) {
+  return (
+    <View style={s.brRow}>
+      <Text style={[s.brLabel, strong && { color: c.text, fontWeight: "700" }]}>{label}</Text>
+      <Text style={[s.brValue, { color }, strong && { fontSize: 18 }]}>{value}</Text>
+    </View>
   );
 }
 
@@ -246,6 +293,11 @@ const s = StyleSheet.create({
     marginTop: space.sm,
   },
   legend: { fontSize: 12, fontFamily: mono, ...tabular },
+  breakdownLink: { color: c.accent, fontSize: 12, marginTop: space.sm },
+
+  brRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 12 },
+  brLabel: { color: c.muted, fontSize: 14 },
+  brValue: { fontFamily: mono, fontSize: 15, fontWeight: "600", ...tabular },
 
   card: {
     backgroundColor: c.surface,
