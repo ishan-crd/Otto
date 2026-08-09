@@ -1,0 +1,29 @@
+{
+  "name": "otto",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Otto — the AI that earns its keep. Autonomous per-use payments over x402 on Algorand.",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "dry-run": "tsx scripts/dry-run.ts",
+    "gen-wallet": "tsx scripts/gen-wallet.ts",
+    "check-wallet": "tsx scripts/check-wallet.ts",
+    "demo": "tsx scripts/demo.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test test/*.test.ts"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.13.7",
+    "algosdk": "^3.2.0",
+    "dotenv": "^16.4.7",
+    "hono": "^4.6.14",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}
