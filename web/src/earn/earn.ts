@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { PAYMENT_TTL_SECONDS, microToUsdcStr, usdcToMicro } from "../config";
-import { getRail } from "../rails";
-import type { PaymentRequirements } from "../rails/types";
+import { microToUsdcStr, PAYMENT_TTL_SECONDS, usdcToMicro } from "../config";
 import { wallet } from "../guard/wallet";
 import { ledger } from "../ledger/ledger";
+import { getRail } from "../rails";
+import type { PaymentRequirements } from "../rails/types";
 
 /**
  * The "Otto earns its keep" side of the economy.
@@ -25,7 +25,7 @@ const CUSTOMERS = [
 
 export async function simulateIncomingPayment() {
   const rail = getRail();
-  const customer = CUSTOMERS[Math.floor(Math.random() * CUSTOMERS.length)]!;
+  const customer = CUSTOMERS[Math.floor(Math.random() * CUSTOMERS.length)] ?? CUSTOMERS[0];
   const priceMicro = usdcToMicro(0.03);
 
   const req: PaymentRequirements = {

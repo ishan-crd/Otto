@@ -19,7 +19,9 @@ console.log("\nMnemonic (25 words) — paste into .env as PAYER_MNEMONIC:\n");
 console.log(mnemonic);
 console.log("\nNext steps:");
 console.log("  1. .env:  RAIL=algorand  and  PAYER_MNEMONIC=<the 25 words above>");
-console.log("  2. Fund with test ALGO:  https://bank.testnet.algorand.network/  (paste the address)");
+console.log(
+  "  2. Fund with test ALGO:  https://bank.testnet.algorand.network/  (paste the address)",
+);
 console.log("  3. Opt in + get test USDC: https://faucet.circle.com/  (choose Algorand TestNet)");
 console.log("     (opt-in happens automatically when Circle's faucet sends you USDC)");
 console.log("  4. Verify readiness:  npm run check-wallet");

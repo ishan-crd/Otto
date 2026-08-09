@@ -1,8 +1,8 @@
-import { getRail } from "../rails";
-import type { PaymentRequirements, SettlementReceipt } from "../rails/types";
 import { spendGuard } from "../guard/spendGuard";
 import { wallet } from "../guard/wallet";
 import { ledger } from "../ledger/ledger";
+import { getRail } from "../rails";
+import type { PaymentRequirements, SettlementReceipt } from "../rails/types";
 
 export class PaymentBlockedError extends Error {
   constructor(
@@ -42,8 +42,7 @@ export async function payAndFetch<T = unknown>(
   };
 
   const first = await fetch(url, init);
-  if (first.status !== 402)
-    return { data: (await first.json()) as T, receipt: freeReceipt(url) };
+  if (first.status !== 402) return { data: (await first.json()) as T, receipt: freeReceipt(url) };
 
   const challenge = (await first.json()) as { accepts: PaymentRequirements[] };
   const requirement = challenge.accepts?.[0];
@@ -51,8 +50,7 @@ export async function payAndFetch<T = unknown>(
 
   // --- The firewall runs BEFORE any money moves. ---
   const decision = spendGuard.authorize(opts.taskId, requirement.amountMicroUsdc);
-  if (!decision.allowed)
-    throw new PaymentBlockedError(decision.reason, requirement);
+  if (!decision.allowed) throw new PaymentBlockedError(decision.reason, requirement);
 
   const payload = await rail.pay(requirement);
   const paymentHeader = Buffer.from(JSON.stringify(payload)).toString("base64");
@@ -88,9 +86,7 @@ export async function payAndFetch<T = unknown>(
   return { data, receipt };
 }
 
-function decodeSettlement(
-  header: string | null,
-): { txId: string; explorerUrl: string } | null {
+function decodeSettlement(header: string | null): { txId: string; explorerUrl: string } | null {
   if (!header) return null;
   try {
     return JSON.parse(Buffer.from(header, "base64").toString("utf8"));

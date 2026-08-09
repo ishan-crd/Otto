@@ -9,6 +9,9 @@
     "dev:mob": "pnpm -C mobile start",
     "install:all": "pnpm -C web install && pnpm -C mobile install",
     "typecheck": "pnpm -C web typecheck && pnpm -C mobile exec tsc --noEmit",
+    "biomecheck": "biome check",
+    "biomecheck:fix": "biome check --write",
+    "check": "pnpm typecheck && pnpm biomecheck",
     "test": "pnpm -C web test",
     "dry-run": "pnpm -C web dry-run",
     "gen-wallet": "pnpm -C web gen-wallet",
@@ -16,6 +19,7 @@
     "demo": "pnpm -C web demo"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.5.7",
     "concurrently": "^9.2.4"
   }
 }

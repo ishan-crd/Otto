@@ -1,13 +1,13 @@
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
+import { otto, type WalletSnapshot } from "../src/api";
 import {
   SHEET_PADDING_X,
   SheetContainer,
   SheetDivider,
   SheetHeader,
 } from "../src/components/GlassSheet";
-import { otto, type WalletSnapshot } from "../src/api";
 import { c, mono, space, tabular, usd } from "../src/theme";
 
 export default function Breakdown() {
@@ -15,7 +15,10 @@ export default function Breakdown() {
   const [w, setW] = useState<WalletSnapshot | null>(null);
 
   useEffect(() => {
-    otto.wallet().then(setW).catch(() => {});
+    otto
+      .wallet()
+      .then(setW)
+      .catch(() => {});
   }, []);
 
   return (
@@ -58,7 +61,12 @@ function Row({
 }
 
 const st = StyleSheet.create({
-  row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 12 },
+  row: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 12,
+  },
   label: { color: c.muted, fontSize: 14 },
   value: { fontFamily: mono, fontSize: 15, fontWeight: "600", ...tabular },
 });

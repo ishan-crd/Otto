@@ -1,11 +1,11 @@
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { config, fmtUsdc } from "./config";
 import { dashboard } from "./api/dashboard";
-import { paid } from "./x402/middleware";
-import { SERVICES } from "./services/registry";
 import { DASHBOARD_HTML } from "./api/webPage";
+import { config, fmtUsdc } from "./config";
+import { SERVICES } from "./services/registry";
+import { paid } from "./x402/middleware";
 
 const app = new Hono();
 
@@ -49,13 +49,16 @@ export function startServer(port = config.PORT) {
     console.log(`\n  🤖 Otto is live`);
     console.log(`     dashboard: http://localhost:${info.port}/`);
     console.log(`     API index: http://localhost:${info.port}/api`);
-    console.log(`     rail: ${config.RAIL.toUpperCase()}  |  session budget: ${fmtUsdc(config.sessionBudgetMicro)}\n`);
+    console.log(
+      `     rail: ${config.RAIL.toUpperCase()}  |  session budget: ${fmtUsdc(config.sessionBudgetMicro)}\n`,
+    );
   });
 }
 
 // Auto-start only when this file is run directly (npm run dev/start),
 // not when imported (e.g. by tests, which boot their own instance).
 import { argv } from "node:process";
+
 if (argv[1] && import.meta.url === `file://${argv[1]}`) startServer();
 
 export { app };

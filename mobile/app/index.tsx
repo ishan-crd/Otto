@@ -11,13 +11,8 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { API_BASE, type LedgerEntry, otto, type WalletSnapshot } from "../src/api";
 import { c, mono, radius, space, tabular, usd } from "../src/theme";
-import {
-  API_BASE,
-  otto,
-  type LedgerEntry,
-  type WalletSnapshot,
-} from "../src/api";
 
 export default function Home() {
   const router = useRouter();
@@ -35,7 +30,7 @@ export default function Home() {
       const [w, l] = await Promise.all([otto.wallet(), otto.ledger()]);
       setWallet(w);
       setFeed(l.entries);
-      l.entries.forEach((e) => seen.current.add(e.id));
+      for (const e of l.entries) seen.current.add(e.id);
       setOffline(false);
     } catch {
       setOffline(true);
@@ -90,8 +85,8 @@ export default function Home() {
         {offline && (
           <View style={s.offline}>
             <Text style={s.offlineText}>
-              Can't reach Otto at {API_BASE}. Start the server (pnpm dev) and, on a
-              real phone, set EXPO_PUBLIC_OTTO_API to your computer's IP.
+              Can't reach Otto at {API_BASE}. Start the server (pnpm dev) and, on a real phone, set
+              EXPO_PUBLIC_OTTO_API to your computer's IP.
             </Text>
           </View>
         )}
@@ -135,7 +130,11 @@ export default function Home() {
           />
           <View style={s.row}>
             <Pressable style={[s.btn, s.primary]} onPress={runOtto} disabled={running}>
-              {running ? <ActivityIndicator color="#fff" /> : <Text style={s.primaryText}>Run Otto</Text>}
+              {running ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={s.primaryText}>Run Otto</Text>
+              )}
             </Pressable>
             <Pressable style={[s.btn, s.ghost]} onPress={earnOnce}>
               <Text style={s.ghostText}>Simulate a client paying Otto</Text>
@@ -195,7 +194,12 @@ const s = StyleSheet.create({
   header: { flexDirection: "row", alignItems: "baseline", marginBottom: space.md },
   logo: { color: c.text, fontSize: 26, fontWeight: "800", letterSpacing: -0.5 },
   tagline: { color: c.muted, fontSize: 12, marginLeft: space.sm, flex: 1 },
-  railChip: { backgroundColor: c.accentSoft, paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill },
+  railChip: {
+    backgroundColor: c.accentSoft,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+  },
   railText: { color: c.accent, fontSize: 11, fontFamily: mono },
 
   offline: {
@@ -217,7 +221,14 @@ const s = StyleSheet.create({
     marginBottom: space.md,
   },
   heroLabel: { color: c.muted, fontSize: 11, letterSpacing: 1.5, marginBottom: 6 },
-  balance: { color: c.text, fontSize: 44, fontWeight: "800", fontFamily: mono, letterSpacing: -1, ...tabular },
+  balance: {
+    color: c.text,
+    fontSize: 44,
+    fontWeight: "800",
+    fontFamily: mono,
+    letterSpacing: -1,
+    ...tabular,
+  },
   flowBar: {
     flexDirection: "row",
     height: 6,
@@ -254,7 +265,12 @@ const s = StyleSheet.create({
   },
   hint: { color: c.muted, fontSize: 12, marginBottom: 6 },
   row: { flexDirection: "row", gap: space.sm, marginTop: 4 },
-  btn: { borderRadius: radius.sm, paddingVertical: 12, alignItems: "center", justifyContent: "center" },
+  btn: {
+    borderRadius: radius.sm,
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   primary: { backgroundColor: c.accent, flex: 1 },
   primaryText: { color: "#fff", fontWeight: "700", fontSize: 15 },
   ghost: { backgroundColor: c.surface2, flex: 1.4, paddingHorizontal: 10 },

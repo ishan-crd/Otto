@@ -8,8 +8,7 @@
  *   - Real phone via Expo Go → set your computer's LAN IP, e.g.
  *       EXPO_PUBLIC_OTTO_API=http://192.168.1.23:8787   (find it: `ipconfig getifaddr en0`)
  */
-export const API_BASE =
-  process.env.EXPO_PUBLIC_OTTO_API ?? "http://localhost:8787";
+export const API_BASE = process.env.EXPO_PUBLIC_OTTO_API ?? "http://localhost:8787";
 
 export interface WalletSnapshot {
   rail: string;
@@ -57,7 +56,6 @@ async function jpost<T>(path: string, body?: unknown): Promise<T> {
 export const otto = {
   wallet: () => jget<WalletSnapshot>("/api/wallet"),
   ledger: () => jget<{ entries: LedgerEntry[] }>("/api/ledger"),
-  run: (goal: string, budgetUsdc: number) =>
-    jpost<RunResult>("/api/run", { goal, budgetUsdc }),
+  run: (goal: string, budgetUsdc: number) => jpost<RunResult>("/api/run", { goal, budgetUsdc }),
   earn: () => jpost<LedgerEntry>("/api/earn/simulate"),
 };

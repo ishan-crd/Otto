@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import type { Context, MiddlewareHandler } from "hono";
-import { PAYMENT_TTL_SECONDS, microToUsdcStr } from "../config";
+import { microToUsdcStr, PAYMENT_TTL_SECONDS } from "../config";
 import { getRail } from "../rails";
-import type { PaymentPayload, PaymentRequirements } from "../rails/types";
+import type { PaymentPayload, PaymentRequirements, SettlementReceipt } from "../rails/types";
 import { consume, issue, lookup } from "./challenges";
 
 /**
@@ -57,23 +57,20 @@ export function paid(
 
     // Redeem it against a live challenge we actually issued (nonce/expiry/replay).
     const requirements = lookup(payload.paymentId);
-    if (!requirements)
-      return c.json({ error: "expired_or_unknown_payment" }, 402);
-    if (payload.nonce !== requirements.nonce)
-      return c.json({ error: "nonce_mismatch" }, 402);
+    if (!requirements) return c.json({ error: "expired_or_unknown_payment" }, 402);
+    if (payload.nonce !== requirements.nonce) return c.json({ error: "nonce_mismatch" }, 402);
     if (payload.amountMicroUsdc !== requirements.amountMicroUsdc)
       return c.json({ error: "amount_mismatch" }, 402);
 
     // ── Step 4/5: /verify BEFORE doing the work ──
     const verdict = await rail.verify(requirements, payload);
-    if (!verdict.valid)
-      return c.json({ error: "payment_invalid", reason: verdict.reason }, 402);
+    if (!verdict.valid) return c.json({ error: "payment_invalid", reason: verdict.reason }, 402);
 
     // ── Step 6/7: do the work ──
     await next();
 
     // ── Step 8-11: /settle AFTER the work, then attach the receipt ──
-    let receipt;
+    let receipt: SettlementReceipt;
     try {
       receipt = await rail.settle(requirements, payload);
     } catch (err) {

@@ -128,5 +128,11 @@ const styles = StyleSheet.create({
   closeRight: { position: "absolute", right: 0 },
   close: { color: c.muted, fontSize: 18, fontWeight: "600" },
   title: { color: c.text, fontSize: 20, fontWeight: "700" },
-  subtitle: { color: c.muted, fontSize: 14, lineHeight: 20, marginTop: SHEET_TITLE_GAP, textAlign: "center" },
+  subtitle: {
+    color: c.muted,
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: SHEET_TITLE_GAP,
+    textAlign: "center",
+  },
 });

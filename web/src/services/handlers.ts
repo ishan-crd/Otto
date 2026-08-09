@@ -63,10 +63,7 @@ export function summarize(input: { text?: string; query?: string }) {
 export function legalSummary(input: { document?: string }) {
   // Otto's OWN sellable skill — other agents pay Otto for this.
   return {
-    riskyClauses: [
-      "Auto-renewal with 90-day notice window",
-      "Unlimited liability on data breach",
-    ],
+    riskyClauses: ["Auto-renewal with 90-day notice window", "Unlimited liability on data breach"],
     missingProtections: ["No cap on indemnity", "No force majeure clause"],
     verdict: "Medium risk — negotiate clauses 4 and 11 before signing.",
     length: (input.document ?? "").length,

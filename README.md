@@ -33,8 +33,10 @@ pnpm dev:web          # ▶ just the backend  → http://localhost:8787  (dashbo
 pnpm dev:mob          # ▶ just the Expo app  (press i / w)
 ```
 
-Other root passthroughs (all target `web/`): `pnpm test`, `pnpm typecheck`,
-`pnpm dry-run`, `pnpm gen-wallet`, `pnpm check-wallet`, `pnpm demo`.
+Quality gates (whole repo): `pnpm typecheck` (web + mobile), `pnpm biomecheck`
+(Biome lint + format), `pnpm biomecheck:fix` (auto-fix), and `pnpm check`
+(typecheck + biome together). Web passthroughs: `pnpm test`, `pnpm dry-run`,
+`pnpm gen-wallet`, `pnpm check-wallet`, `pnpm demo`.
 
 ## The web app (`web/`)
 - **Dashboard at `/`** (`http://localhost:8787/`) — the live "watch money move" UI.

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { config, fmtUsdc } from "../config";
 import { PaymentBlockedError, payAndFetch } from "../client/x402Client";
+import { config, fmtUsdc } from "../config";
 import { spendGuard } from "../guard/spendGuard";
 import { planForGoal } from "./planner";
 
@@ -45,10 +45,10 @@ export async function runConcierge(
 
   for (const { service, input } of plan) {
     try {
-      const { data, receipt } = await payAndFetch(
-        `${config.selfUrl}${service.path}`,
-        { taskId, body: input },
-      );
+      const { data, receipt } = await payAndFetch(`${config.selfUrl}${service.path}`, {
+        taskId,
+        body: input,
+      });
       steps.push({
         serviceId: service.id,
         description: service.description,

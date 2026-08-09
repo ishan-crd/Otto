@@ -57,18 +57,28 @@ function randomRows() {
     { label: "Session", value: `#${rand(99999)}` },
     { label: "Requests today", value: `${rand(500) + 20}` },
     { label: "Avg latency", value: `${rand(180) + 40} ms` },
-    { label: "Region", value: regions[rand(regions.length)]! },
+    { label: "Region", value: regions[rand(regions.length)] ?? regions[0] },
     { label: "Trust score", value: `${rand(40) + 60}/100` },
     { label: "Last tx", value: `0x${hex()}${hex()}` },
   ];
 }
 
 const st = StyleSheet.create({
-  row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 12 },
+  row: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 12,
+  },
   label: { color: c.muted, fontSize: 14 },
   value: { color: c.text, fontFamily: mono, fontSize: 15, fontWeight: "600", ...tabular },
   para: { color: c.muted, fontSize: 13.5, lineHeight: 20, marginTop: space.md },
   tagRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: space.md },
-  tag: { backgroundColor: c.accentSoft, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6 },
+  tag: {
+    backgroundColor: c.accentSoft,
+    borderRadius: radius.pill,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
   tagText: { color: c.accent, fontSize: 12, fontFamily: mono },
 });

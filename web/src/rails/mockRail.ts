@@ -43,21 +43,14 @@ export class MockRail implements PaymentRail {
     };
   }
 
-  async verify(
-    req: PaymentRequirements,
-    payload: PaymentPayload,
-  ): Promise<VerifyResult> {
-    if (payload.payTo !== req.payTo)
-      return { valid: false, reason: "wrong recipient" };
+  async verify(req: PaymentRequirements, payload: PaymentPayload): Promise<VerifyResult> {
+    if (payload.payTo !== req.payTo) return { valid: false, reason: "wrong recipient" };
     if (payload.amountMicroUsdc !== req.amountMicroUsdc)
       return { valid: false, reason: "amount mismatch" };
     return { valid: true };
   }
 
-  async settle(
-    req: PaymentRequirements,
-    payload: PaymentPayload,
-  ): Promise<SettlementReceipt> {
+  async settle(req: PaymentRequirements, payload: PaymentPayload): Promise<SettlementReceipt> {
     const txId = `MOCK-${randomUUID().replace(/-/g, "").slice(0, 24).toUpperCase()}`;
     return {
       txId,

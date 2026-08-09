@@ -1,11 +1,5 @@
 import { randomUUID } from "node:crypto";
-import {
-  PAYMENT_TTL_SECONDS,
-  config,
-  fmtUsdc,
-  microToUsdcStr,
-  usdcToMicro,
-} from "../src/config";
+import { config, fmtUsdc, microToUsdcStr, PAYMENT_TTL_SECONDS, usdcToMicro } from "../src/config";
 import { getRail } from "../src/rails";
 import type { PaymentRequirements } from "../src/rails/types";
 
@@ -54,9 +48,10 @@ async function main() {
   console.log(`   network : ${receipt.network}\n`);
 
   if (receipt.mock)
-    console.log("→ MOCK passed. App logic works. Now set RAIL=algorand and re-run to test the real chain.\n");
-  else
-    console.log("→ REAL settlement passed. Open the explorer link to confirm. x402 is GO. ✅\n");
+    console.log(
+      "→ MOCK passed. App logic works. Now set RAIL=algorand and re-run to test the real chain.\n",
+    );
+  else console.log("→ REAL settlement passed. Open the explorer link to confirm. x402 is GO. ✅\n");
 }
 
 main().catch((err) => {

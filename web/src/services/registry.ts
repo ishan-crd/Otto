@@ -1,12 +1,5 @@
 import { usdcToMicro } from "../config";
-import {
-  flightPrices,
-  hotelSearch,
-  legalSummary,
-  summarize,
-  weather,
-  webSearch,
-} from "./handlers";
+import { flightPrices, hotelSearch, legalSummary, summarize, weather, webSearch } from "./handlers";
 
 export interface ServiceDef {
   id: string;

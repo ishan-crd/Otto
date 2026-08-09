@@ -27,9 +27,7 @@ const Env = z.object({
   PAYER_MNEMONIC: z.string().default(""),
   RECEIVER_ADDRESS: z.string().default(""),
   FACILITATOR_URL: z.string().default("https://facilitator.goplausible.xyz"),
-  EXPLORER_TX_BASE: z
-    .string()
-    .default("https://lora.algokit.io/testnet/transaction/"),
+  EXPLORER_TX_BASE: z.string().default("https://lora.algokit.io/testnet/transaction/"),
 });
 
 const parsed = Env.parse(process.env);

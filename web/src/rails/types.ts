@@ -87,8 +87,5 @@ export interface PaymentRail {
   /** FACILITATOR /verify: is this payment valid? (runs BEFORE the work). */
   verify(req: PaymentRequirements, payload: PaymentPayload): Promise<VerifyResult>;
   /** FACILITATOR /settle: broadcast + confirm (runs AFTER the work). */
-  settle(
-    req: PaymentRequirements,
-    payload: PaymentPayload,
-  ): Promise<SettlementReceipt>;
+  settle(req: PaymentRequirements, payload: PaymentPayload): Promise<SettlementReceipt>;
 }

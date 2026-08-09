@@ -23,12 +23,18 @@ async function main() {
   const address = payer.addr.toString();
   console.log(`\n=== Wallet check — ${address} ===\n`);
 
-  const info = (await algod.accountInformation(payer.addr).do()) as any;
+  type AssetHolding = {
+    assetId?: number | bigint;
+    "asset-id"?: number | bigint;
+    amount?: number | bigint;
+  };
+  const info = (await algod.accountInformation(payer.addr).do()) as {
+    amount?: number | bigint;
+    assets?: AssetHolding[];
+  };
   const algoBalance = Number(info.amount ?? 0) / 1e6;
-  const assets: any[] = info.assets ?? info["assets"] ?? [];
-  const usdc = assets.find(
-    (a) => Number(a.assetId ?? a["asset-id"]) === config.USDC_ASSET_ID,
-  );
+  const assets: AssetHolding[] = info.assets ?? [];
+  const usdc = assets.find((a) => Number(a.assetId ?? a["asset-id"]) === config.USDC_ASSET_ID);
   const usdcOptedIn = Boolean(usdc);
   const usdcBalance = usdc ? microToUsdc(Number(usdc.amount ?? 0)) : 0;
 
@@ -38,9 +44,12 @@ async function main() {
   console.log(`${ok(usdcBalance > 0)} test USDC balance : ${usdcBalance} USDC`);
 
   const ready = algoBalance > 0.1 && usdcOptedIn && usdcBalance > 0;
-  console.log(`\n${ready ? "✅ READY — run `npm run dry-run`" : "❌ NOT READY — fix the ❌ items above (see SETUP.md)"}\n`);
+  console.log(
+    `\n${ready ? "✅ READY — run `npm run dry-run`" : "❌ NOT READY — fix the ❌ items above (see SETUP.md)"}\n`,
+  );
   if (!algoBalance) console.log("  → fund ALGO: https://bank.testnet.algorand.network/");
-  if (!usdcOptedIn || !usdcBalance) console.log("  → get USDC (auto opt-in): https://faucet.circle.com/ (Algorand TestNet)");
+  if (!usdcOptedIn || !usdcBalance)
+    console.log("  → get USDC (auto opt-in): https://faucet.circle.com/ (Algorand TestNet)");
   console.log();
   process.exit(ready ? 0 : 1);
 }

@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
-import { app } from "../src/index";
 import { serve } from "@hono/node-server";
 import { runConcierge } from "../src/agent/concierge";
 import { config, usdcToMicro } from "../src/config";
+import { app } from "../src/index";
 
 // The concierge makes real x402 HTTP calls to the paid endpoints, so the tests
 // need a server on config.PORT. If a dev server is already running there, reuse

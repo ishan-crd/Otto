@@ -32,13 +32,8 @@ export class AlgorandRail implements PaymentRail {
   private readonly facilitatorUrl: string;
 
   constructor(cfg: Config) {
-    if (!cfg.PAYER_MNEMONIC)
-      throw new Error("RAIL=algorand requires PAYER_MNEMONIC in .env");
-    this.algod = new algosdk.Algodv2(
-      cfg.ALGOD_TOKEN,
-      cfg.ALGOD_SERVER,
-      cfg.ALGOD_PORT,
-    );
+    if (!cfg.PAYER_MNEMONIC) throw new Error("RAIL=algorand requires PAYER_MNEMONIC in .env");
+    this.algod = new algosdk.Algodv2(cfg.ALGOD_TOKEN, cfg.ALGOD_SERVER, cfg.ALGOD_PORT);
     this.payer = algosdk.mnemonicToSecretKey(cfg.PAYER_MNEMONIC.trim());
     this.asset = cfg.USDC_ASSET_ID;
     this.receiver = cfg.RECEIVER_ADDRESS || this.payer.addr.toString();
@@ -88,12 +83,8 @@ export class AlgorandRail implements PaymentRail {
    * amount to the right recipient. (A production facilitator would also dry-run
    * it on-chain; POST to facilitatorUrl+"/verify" to delegate that.)
    */
-  async verify(
-    req: PaymentRequirements,
-    payload: PaymentPayload,
-  ): Promise<VerifyResult> {
-    if (!payload.signedTxnB64)
-      return { valid: false, reason: "missing signed txn" };
+  async verify(req: PaymentRequirements, payload: PaymentPayload): Promise<VerifyResult> {
+    if (!payload.signedTxnB64) return { valid: false, reason: "missing signed txn" };
     try {
       const bytes = new Uint8Array(Buffer.from(payload.signedTxnB64, "base64"));
       const decoded = algosdk.decodeSignedTransaction(bytes);
@@ -104,10 +95,8 @@ export class AlgorandRail implements PaymentRail {
       const at = txn.assetTransfer;
       const amount = Number(at?.amount ?? -1);
       const assetIndex = Number(at?.assetIndex ?? -1);
-      if (assetIndex !== this.asset)
-        return { valid: false, reason: "wrong asset" };
-      if (amount !== req.amountMicroUsdc)
-        return { valid: false, reason: "amount mismatch" };
+      if (assetIndex !== this.asset) return { valid: false, reason: "wrong asset" };
+      if (amount !== req.amountMicroUsdc) return { valid: false, reason: "amount mismatch" };
       return { valid: true };
     } catch (err) {
       // Different algosdk minor versions expose the decoded txn slightly
@@ -116,12 +105,8 @@ export class AlgorandRail implements PaymentRail {
     }
   }
 
-  async settle(
-    req: PaymentRequirements,
-    payload: PaymentPayload,
-  ): Promise<SettlementReceipt> {
-    if (!payload.signedTxnB64)
-      throw new Error("algorand settle: missing signed txn");
+  async settle(req: PaymentRequirements, payload: PaymentPayload): Promise<SettlementReceipt> {
+    if (!payload.signedTxnB64) throw new Error("algorand settle: missing signed txn");
     const signed = new Uint8Array(Buffer.from(payload.signedTxnB64, "base64"));
     const sent = (await this.algod.sendRawTransaction(signed).do()) as {
       txid?: string;
@@ -152,8 +137,7 @@ export class AlgorandRail implements PaymentRail {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ paymentPayload: payload, paymentRequirements: req }),
     });
-    if (!res.ok)
-      throw new Error(`facilitator /settle failed: ${res.status} ${await res.text()}`);
+    if (!res.ok) throw new Error(`facilitator /settle failed: ${res.status} ${await res.text()}`);
     const body = (await res.json()) as { txId?: string; txid?: string };
     const txId = body.txId ?? body.txid ?? "";
     return {
