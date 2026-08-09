@@ -34,7 +34,14 @@ export default function App() {
   const [blocked, setBlocked] = useState<string | null>(null);
   const [offline, setOffline] = useState(false);
   const [showBreakdown, setShowBreakdown] = useState(false);
+  const [showTest, setShowTest] = useState(false);
+  const [testData, setTestData] = useState<{ label: string; value: string }[]>([]);
   const seen = useRef(new Set<string>());
+
+  const openTestSheet = () => {
+    setTestData(randomRows());
+    setShowTest(true);
+  };
 
   const poll = useCallback(async () => {
     try {
@@ -159,6 +166,11 @@ export default function App() {
           )}
         </View>
 
+        {/* Test the glassmorphic bottom sheet */}
+        <Pressable style={s.sheetBtn} onPress={openTestSheet}>
+          <Text style={s.sheetBtnText}>Open bottom sheet</Text>
+        </Pressable>
+
         {/* Signature — the live payment stream */}
         <View style={s.card}>
           <Text style={s.cardTitle}>LIVE PAYMENTS</Text>
@@ -212,8 +224,59 @@ export default function App() {
           <BreakdownRow label="Balance" value={usd(wallet?.balance.usdc ?? 0)} color={c.text} strong />
         </View>
       </GlassBottomSheet>
+
+      {/* Test sheet — random content, scrollable */}
+      <GlassBottomSheet visible={showTest} onClose={() => setShowTest(false)} scroll>
+        <SheetHeader
+          title="Bottom sheet ✨"
+          subtitle="Random test content — scroll it, tap outside or ✕ to close"
+          onClose={() => setShowTest(false)}
+        />
+        <View style={{ paddingHorizontal: SHEET_PADDING_X, paddingTop: space.md }}>
+          {testData.map((r, i) => (
+            <View key={r.label}>
+              <BreakdownRow label={r.label} value={r.value} color={c.text} />
+              {i < testData.length - 1 && <SheetDivider />}
+            </View>
+          ))}
+
+          <Text style={s.sheetPara}>{LOREM}</Text>
+
+          <View style={s.tagRow}>
+            {["autonomous", "x402", "algorand", "usdc", "agentic", "micropayments"].map(
+              (t) => (
+                <View key={t} style={s.tag}>
+                  <Text style={s.tagText}>{t}</Text>
+                </View>
+              ),
+            )}
+          </View>
+
+          <Pressable style={[s.btn, s.primary, { marginTop: space.lg }]} onPress={openTestSheet}>
+            <Text style={s.primaryText}>Randomize again</Text>
+          </Pressable>
+        </View>
+      </GlassBottomSheet>
     </SafeAreaView>
   );
+}
+
+const LOREM =
+  "Otto negotiates access to data it doesn't own, pays for exactly what it uses, and stops the moment the budget runs out. This paragraph is filler to test wrapping, line height, and scrolling inside the sheet. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.";
+
+function randomRows() {
+  const rand = (n: number) => Math.floor(Math.random() * n);
+  const hex = () => Math.random().toString(16).slice(2, 8).toUpperCase();
+  const regions = ["ap-south-1", "us-east-1", "eu-west-2", "sa-east-1"];
+  return [
+    { label: "Agent ID", value: `otto-${hex()}` },
+    { label: "Session", value: `#${rand(99999)}` },
+    { label: "Requests today", value: `${rand(500) + 20}` },
+    { label: "Avg latency", value: `${rand(180) + 40} ms` },
+    { label: "Region", value: regions[rand(regions.length)]! },
+    { label: "Trust score", value: `${rand(40) + 60}/100` },
+    { label: "Last tx", value: `0x${hex()}${hex()}` },
+  ];
 }
 
 function BreakdownRow({
@@ -298,6 +361,26 @@ const s = StyleSheet.create({
   brRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 12 },
   brLabel: { color: c.muted, fontSize: 14 },
   brValue: { fontFamily: mono, fontSize: 15, fontWeight: "600", ...tabular },
+
+  sheetBtn: {
+    backgroundColor: c.surface,
+    borderColor: c.border,
+    borderWidth: 1,
+    borderRadius: radius.lg,
+    paddingVertical: 14,
+    alignItems: "center",
+    marginBottom: space.md,
+  },
+  sheetBtnText: { color: c.accent, fontWeight: "700", fontSize: 15 },
+  sheetPara: { color: c.muted, fontSize: 13.5, lineHeight: 20, marginTop: space.md },
+  tagRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: space.md },
+  tag: {
+    backgroundColor: c.accentSoft,
+    borderRadius: radius.pill,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  tagText: { color: c.accent, fontSize: 12, fontFamily: mono },
 
   card: {
     backgroundColor: c.surface,
