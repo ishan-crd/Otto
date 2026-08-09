@@ -1,29 +1,21 @@
 {
-  "name": "otto",
+  "name": "otto-monorepo",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
-  "description": "Otto — the AI that earns its keep. Autonomous per-use payments over x402 on Algorand.",
+  "description": "Otto — the AI that earns its keep. Monorepo: web (backend + dashboard) + mobile (Expo).",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
-    "start": "tsx src/index.ts",
-    "dry-run": "tsx scripts/dry-run.ts",
-    "gen-wallet": "tsx scripts/gen-wallet.ts",
-    "check-wallet": "tsx scripts/check-wallet.ts",
-    "demo": "tsx scripts/demo.ts",
-    "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test test/*.test.ts"
-  },
-  "dependencies": {
-    "@hono/node-server": "^1.13.7",
-    "algosdk": "^3.2.0",
-    "dotenv": "^16.4.7",
-    "hono": "^4.6.14",
-    "zod": "^3.24.1"
+    "dev": "concurrently -n web,mob -c blue,magenta \"pnpm dev:web\" \"pnpm dev:mob\"",
+    "dev:web": "pnpm -C web dev",
+    "dev:mob": "pnpm -C mobile start",
+    "install:all": "pnpm -C web install && pnpm -C mobile install",
+    "typecheck": "pnpm -C web typecheck && pnpm -C mobile exec tsc --noEmit",
+    "test": "pnpm -C web test",
+    "dry-run": "pnpm -C web dry-run",
+    "gen-wallet": "pnpm -C web gen-wallet",
+    "check-wallet": "pnpm -C web check-wallet",
+    "demo": "pnpm -C web demo"
   },
   "devDependencies": {
-    "@types/node": "^22.10.5",
-    "tsx": "^4.19.2",
-    "typescript": "^5.7.2"
+    "concurrently": "^9.2.4"
   }
 }

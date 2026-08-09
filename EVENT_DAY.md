@@ -7,15 +7,15 @@ ordered runbook for Aug 10.
 
 ```bash
 cd ~/Desktop/otto
-pnpm install                 # if on a fresh machine
+pnpm install && pnpm install:all   # if on a fresh machine (root + web + mobile)
 pnpm typecheck && pnpm test && pnpm dry-run   # all green = base is intact
 ```
 
-Go real (the one thing that needs your wallet):
+Go real (the one thing that needs your wallet). Your `.env` lives in `web/`:
 
 ```bash
 pnpm gen-wallet          # mint a TestNet account (or export from Pera)
-#  → put RAIL=algorand + PAYER_MNEMONIC in .env
+#  → put RAIL=algorand + PAYER_MNEMONIC in web/.env
 #  → fund ALGO:  https://bank.testnet.algorand.network/
 #  → get USDC :  https://faucet.circle.com/  (Algorand TestNet)
 pnpm check-wallet        # must be all ✅
@@ -28,9 +28,11 @@ protocol criterion is fully satisfied.
 ## Running it during the build
 
 ```bash
-pnpm dev                 # backend + built-in dashboard
-# open http://localhost:8787/app    (the demo UI)
-# open http://localhost:8787/       (API index)
+pnpm dev                 # ▶ starts BOTH web + mobile
+pnpm dev:web             # ▶ just the backend
+pnpm dev:mob             # ▶ just the Expo app
+# open http://localhost:8787/        (the dashboard)
+# open http://localhost:8787/api     (API index)
 pnpm demo                # scripted earn → spend → firewall (another terminal)
 ```
 

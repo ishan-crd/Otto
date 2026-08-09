@@ -10,7 +10,7 @@ already done for you.
 ## Part A — verify the app (5 minutes, do this today)
 
 ```bash
-cd ~/Desktop/otto
+cd ~/Desktop/otto/web
 pnpm install
 pnpm typecheck        # should print nothing (clean)
 pnpm test                 # 2 tests pass

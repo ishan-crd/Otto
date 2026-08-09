@@ -3,106 +3,51 @@
 **HACKNITE Code Royale 2026 · x402 & Algorand track.**
 
 Otto is an autonomous AI agent with its own wallet. Give it a goal and a budget
-and it hires paid micro-services across the web, **paying each one per use with
-USDC over x402** — never spending a rupee over the budget you set. And it doesn't
-only spend: Otto **sells its own skills** to other agents, so it earns money to
-fund its own errands. An AI with income, expenses, and a hard budget it cannot
-break.
+and it hires paid micro-services, **paying each per use with USDC over x402** —
+never over budget — and it **sells its own skill** to other agents to fund
+itself. An AI with income, expenses, and a hard budget it can't break.
 
-> **One line:** We gave an AI a debit card — then it went and got a job to keep
-> it funded.
+## Monorepo layout
 
-This repo is the **complete backend + payment infrastructure.** It runs today
-with zero config (mock rail) and flips to real Algorand testnet settlement with
-one env change. **You build the frontend during the hackathon; this does
-everything else.**
+```
+otto/
+  web/      backend: Hono x402 server + payment rails + built-in dashboard  (Node/TS)
+  mobile/   Expo app: wallet, live payment feed, native glass sheets        (Expo Router)
+  package.json   root orchestrator (dev / dev:web / dev:mob)
+```
 
----
+The two apps are **independent installs** (each has its own `node_modules` and
+lockfile) — the root just orchestrates them. This sidesteps Expo + pnpm hoisting
+headaches; nothing about the working mobile setup is shared or hoisted.
 
-## Quick start (works right now, no wallet needed)
+## Getting started
 
 ```bash
-pnpm install
-pnpm dev          # starts Otto on http://localhost:8787 (mock rail)
+# one-time: install both apps
+pnpm install          # root (installs `concurrently`)
+pnpm install:all      # installs web/ and mobile/
+
+# run everything
+pnpm dev              # ▶ starts BOTH: web server + Expo, side by side
+pnpm dev:web          # ▶ just the backend  → http://localhost:8787  (dashboard at /)
+pnpm dev:mob          # ▶ just the Expo app  (press i / w)
 ```
 
-In another terminal:
+Other root passthroughs (all target `web/`): `pnpm test`, `pnpm typecheck`,
+`pnpm dry-run`, `pnpm gen-wallet`, `pnpm check-wallet`, `pnpm demo`.
 
-```bash
-pnpm demo         # scripted walk-through: earn → work → firewall block
-```
+## The web app (`web/`)
+- **Dashboard at `/`** (`http://localhost:8787/`) — the live "watch money move" UI.
+- **API index at `/api`**; endpoints under `/api/*` (wallet, ledger, run,
+  earn/simulate, stream).
+- Full backend docs, the x402 rubric mapping, the go/no-go dry run, and the
+  architecture are in **`web/README.md`**, **`web/SETUP.md`**,
+  **`web/ARCHITECTURE.md`**.
 
-Or drive it directly:
+## The mobile app (`mobile/`)
+Expo Router app that talks to the web API. Wallet hero, live payment stream, and
+**native iOS Liquid Glass** bottom sheets. See **`mobile/README.md`**.
 
-```bash
-# Otto runs a goal, paying for each service it needs:
-curl -s localhost:8787/api/run -H 'content-type: application/json' \
-  -d '{"goal":"plan a weekend trip to Goa","budgetUsdc":0.10}' | jq
-
-# Set the budget too low and watch the Spend Firewall stop it mid-task:
-curl -s localhost:8787/api/run -H 'content-type: application/json' \
-  -d '{"goal":"plan a weekend trip to Goa","budgetUsdc":0.015}' | jq '.blocked'
-
-# An external agent pays Otto (earnings tick up):
-curl -s -X POST localhost:8787/api/earn/simulate | jq
-```
-
----
-
-## What maps to the judging rubric
-
-| Weight | Criterion | Where it lives |
-|---|---|---|
-| 30% | x402 Protocol Flow | `src/x402/middleware.ts` — spec-exact **402 → verify → work → settle → X-PAYMENT-RESPONSE** (whitepaper Fig. 1) + `src/client/x402Client.ts` (sign + auto-retry). Canonical `PaymentRequirements` body, `X-PAYMENT` header, `nonce`/`expiresAt`/`paymentId` replay+expiry guards. |
-| 25% | Real Pay-Per-Call Model | The payer is the **agent itself**; every call is priced, no subscriptions (`src/services/registry.ts`) |
-| 20% | Technical Execution & Algorand | `src/rails/algorandRail.ts` — real USDC ASA settlement + tx id |
-| 15% | Innovation & Utility | The **Spend Firewall** (`src/guard/`) + the **earn-and-spend economy** (`src/earn/`) — the aggregator/"Entry Management Framework" is `src/agent/concierge.ts` |
-| 10% | Documentation & Deployment | This README + `SETUP.md` + `ARCHITECTURE.md` |
-
----
-
-## Frontend API (what you'll build against during the hackathon)
-
-Base URL `http://localhost:8787`. CORS is open. Money is returned in both
-`micro` (integer micro-USDC) and `usdc` (float, for display).
-
-| Method | Path | Purpose |
-|---|---|---|
-| `POST` | `/api/run` | `{ goal, budgetUsdc? }` → runs the concierge, returns steps + receipts + report |
-| `GET` | `/api/wallet` | balance / earned / spent / topped-up |
-| `GET` | `/api/ledger` | every payment (in & out) with tx ids + explorer links |
-| `GET` | `/api/services` | the paid-service marketplace + prices |
-| `POST` | `/api/earn/simulate` | simulate an external agent paying Otto |
-| `GET` | `/api/stream` | **SSE** live stream of every payment + wallet change (for the animated dashboard) |
-| `GET` | `/api/health` | health + which rail is active |
-
-The `/api/stream` endpoint emits `payment`, `wallet`, and `ping` events — wire it
-straight into your dashboard so money animates live on stage.
-
----
-
-## Going to real Algorand testnet
-
-See **`SETUP.md`** — the pre-hackathon checklist and the go/no-go dry run. Short
-version: fund a testnet wallet, set `RAIL=algorand` + `PAYER_MNEMONIC` in `.env`,
-run `pnpm dry-run`, confirm a real tx id. That's the gate that says x402 is
-safe to build on.
-
-## Layout
-
-```
-src/
-  config.ts            env + money helpers (all money is integer micro-USDC)
-  rails/               THE payment abstraction — mock vs real Algorand
-  x402/middleware.ts   server: 402 challenge + settle (Otto earning)
-  client/x402Client.ts client: pay + auto-retry (Otto spending) + firewall call
-  guard/               the Spend Firewall + wallet
-  services/            the paid micro-APIs Otto buys and sells
-  agent/               planner + concierge (the aggregator)
-  earn/                Otto's income side
-  ledger/              append-only record streamed to the dashboard
-  api/dashboard.ts     the REST + SSE the frontend consumes
-scripts/
-  dry-run.ts           the pre-event go/no-go test
-  demo.ts              scripted pitch rehearsal
-```
+## Before the hackathon
+See **`EVENT_DAY.md`** for the ordered runbook, and `web/SETUP.md` for the
+Algorand testnet go/no-go test.

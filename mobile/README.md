@@ -7,8 +7,8 @@ a goal, and see the Spend Firewall in action. Talks to the Otto backend
 ## Run it
 
 ```bash
-# 1. start the backend first (in ~/Desktop/otto)
-cd ~/Desktop/otto && pnpm dev        # http://localhost:8787
+# 1. start the backend first (from the monorepo root)
+cd ~/Desktop/otto && pnpm dev:web    # http://localhost:8787
 
 # 2. start the app (in ~/Desktop/otto/mobile)
 cd ~/Desktop/otto/mobile && pnpm start

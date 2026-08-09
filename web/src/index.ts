@@ -12,8 +12,8 @@ const app = new Hono();
 // The frontend runs on its own dev server during the hackathon — allow it.
 app.use("*", cors());
 
-// Built-in browser dashboard so you can SEE Otto working at /app.
-app.get("/app", (c) => c.html(DASHBOARD_HTML));
+// Built-in browser dashboard so you can SEE Otto working — served at root.
+app.get("/", (c) => c.html(DASHBOARD_HTML));
 
 // Mount every registry service as a paid x402 endpoint.
 for (const service of SERVICES) {
@@ -26,7 +26,8 @@ for (const service of SERVICES) {
 // Dashboard + control API for the frontend.
 app.route("/", dashboard);
 
-app.get("/", (c) =>
+// Machine-readable API index (the dashboard lives at `/`).
+app.get("/api", (c) =>
   c.json({
     name: "Otto",
     tagline: "the AI that earns its keep",
@@ -45,9 +46,10 @@ app.get("/", (c) =>
 
 export function startServer(port = config.PORT) {
   return serve({ fetch: app.fetch, port }, (info) => {
-    console.log(`\n  🤖 Otto is live on http://localhost:${info.port}`);
-    console.log(`     rail: ${config.RAIL.toUpperCase()}  |  session budget: ${fmtUsdc(config.sessionBudgetMicro)}`);
-    console.log(`     try:  curl -s localhost:${info.port}/api/run -H 'content-type: application/json' -d '{"goal":"plan a weekend trip to Goa","budgetUsdc":0.1}' | jq\n`);
+    console.log(`\n  🤖 Otto is live`);
+    console.log(`     dashboard: http://localhost:${info.port}/`);
+    console.log(`     API index: http://localhost:${info.port}/api`);
+    console.log(`     rail: ${config.RAIL.toUpperCase()}  |  session budget: ${fmtUsdc(config.sessionBudgetMicro)}\n`);
   });
 }
 
