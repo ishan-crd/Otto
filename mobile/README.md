@@ -25,25 +25,51 @@ export EXPO_PUBLIC_OTTO_API=http://$(ipconfig getifaddr en0):8787   # then: pnpm
 ```
 
 ## What's here (the base — extend this tomorrow)
-- `App.tsx` — the single screen: wallet hero (balance + earned/spent flow bar),
-  goal control, and the **live payment stream** (the signature element).
-- `src/theme.ts` — design tokens. Premium dark "financial instrument" look:
-  calm + trustworthy, with monospace tabular numbers + directional money color
-  as the one crypto-native signature. Change the palette here in one place.
-- `src/api.ts` — typed Otto backend client + the localhost gotcha note.
-- `src/components/GlassSheet.tsx` — bottom sheet ported from clip-merged
-  (34px corners, grabber, top-edge highlight). Transparent body on iOS, opaque
-  fallback on Android. No blur, no external deps. Controlled via
-  `visible`/`onClose`. Live example wired to the hero's "view breakdown ›".
-  Usage:
 
-  ```tsx
-  const [open, setOpen] = useState(false);
-  <GlassBottomSheet visible={open} onClose={() => setOpen(false)}>
-    <SheetHeader title="…" subtitle="…" onClose={() => setOpen(false)} />
-    <View style={{ paddingHorizontal: SHEET_PADDING_X }}>{/* content */}</View>
-  </GlassBottomSheet>
-  ```
+Uses **Expo Router** (file-based routing in `app/`):
+- `app/_layout.tsx` — Stack + the native `formSheet` config that produces the
+  glass sheets (`contentStyle: transparent` on iOS → Apple Liquid Glass shows
+  through; opaque surface on Android).
+- `app/index.tsx` — the home screen: wallet hero (balance + earned/spent flow
+  bar), goal control, and the **live payment stream** (the signature element).
+- `app/breakdown.tsx`, `app/test-sheet.tsx` — the two sheet routes, presented
+  natively as glass form sheets.
+- `src/theme.ts` — design tokens. Premium dark "financial instrument" look.
+  Change the palette here in one place.
+- `src/api.ts` — typed Otto backend client + the localhost gotcha note.
+- `src/components/GlassSheet.tsx` — `SheetContainer` / `SheetHeader` /
+  `SheetDivider` content primitives for the sheet routes.
+
+### Glassmorphism = native, not blur
+The glass is Apple's own **Liquid Glass** (iOS 26+), obtained by presenting a
+route as a `formSheet` with a **transparent** `contentStyle` so the OS material
+shows through — no `expo-blur`. To add a new glass sheet:
+
+```tsx
+// app/my-sheet.tsx — the content
+export default function MySheet() {
+  const router = useRouter();
+  return (
+    <SheetContainer>
+      <SheetHeader title="…" onClose={() => router.back()} />
+      <View style={{ paddingHorizontal: SHEET_PADDING_X }}>{/* content */}</View>
+    </SheetContainer>
+  );
+}
+```
+
+```tsx
+// app/_layout.tsx — register it as a glass form sheet
+<Stack.Screen name="my-sheet" options={{ ...sheetOptions,
+  sheetAllowedDetents: [0.5, 1], sheetInitialDetentIndex: 0 }} />
+```
+
+Open it from anywhere with `router.push("/my-sheet")`.
+
+> ⚠️ Liquid Glass renders on **iOS 26+**. On older iOS a transparent form sheet
+> looks plain/dark; Android uses the opaque `c.surface` fallback (set in
+> `SheetContainer`). This is the tradeoff for dropping the `expo-blur`
+> cross-device fallback.
 
 Updates poll every 1.5s (simple + reliable). To go real-time, swap polling for
 SSE against `GET /api/stream` with `react-native-sse`.

@@ -1,89 +1,56 @@
 import type { ReactNode } from "react";
 import {
-  Modal,
   Platform,
   Pressable,
   ScrollView,
-  StyleSheet,
   type StyleProp,
+  StyleSheet,
   Text,
   View,
   type ViewStyle,
 } from "react-native";
-import { c, radius } from "../theme";
+import { c } from "../theme";
 
 /**
- * Bottom sheet — ported from clip-merged's `ui/sheet.tsx`, minus the blur.
+ * Sheet content primitives for Expo Router's native `formSheet` presentation.
  *
- * The sheet body is TRANSPARENT on iOS (no BlurView / frosted fill) and OPAQUE
- * on Android (blur isn't dependable there). It keeps the sheet's shape DNA —
- * 34px top corners, grabber, the light top-edge highlight — and a controlled
- * `Modal` (transparent) so it slides up over a dimmed backdrop. No external
- * deps.
+ * The glassmorphism comes from iOS itself: the route is presented as a
+ * `formSheet` with `contentStyle: { backgroundColor: "transparent" }` (see
+ * app/_layout.tsx), so on iOS 26+ Apple's Liquid Glass material shows through.
+ * That's why SheetContainer is TRANSPARENT on iOS — anything opaque would hide
+ * the glass. On Android (no glass) it falls back to an opaque surface.
  *
- * Usage:
- *   const [open, setOpen] = useState(false);
- *   <GlassBottomSheet visible={open} onClose={() => setOpen(false)}>
- *     <SheetHeader title="…" subtitle="…" onClose={() => setOpen(false)} />
- *     <View style={{ paddingHorizontal: SHEET_PADDING_X }}>…</View>
- *   </GlassBottomSheet>
+ * The native sheet draws its own rounded corners + grabber
+ * (`sheetGrabberVisible`), so these primitives are just content styling.
  */
 
 export const SHEET_PADDING_X = 20;
-export const SHEET_HEADER_TOP = 20;
+export const SHEET_HEADER_TOP = 14;
 export const SHEET_TITLE_GAP = 8;
 export const SHEET_BOTTOM = 32;
-export const SHEET_CORNER_RADIUS = 34;
 
-/** The sheet body: transparent on iOS, opaque fallback on Android. */
-function SheetBody({
+/** Root wrapper for a formSheet route's content. */
+export function SheetContainer({
   children,
-  fallback = false,
-}: {
-  children: ReactNode;
-  fallback?: boolean;
-}) {
-  const opaque = Platform.OS !== "ios" || fallback;
-  const rootStyle: StyleProp<ViewStyle> = {
-    borderTopLeftRadius: SHEET_CORNER_RADIUS,
-    borderTopRightRadius: SHEET_CORNER_RADIUS,
-    overflow: "hidden",
-    maxHeight: "88%",
-    backgroundColor: opaque ? c.surface : "transparent",
-  };
-
-  return (
-    <View style={rootStyle}>
-      {/* grabber */}
-      <View style={s.grabberWrap} pointerEvents="none">
-        <View style={s.grabber} />
-      </View>
-      {/* top-edge highlight — the light rim that reads as a pane's edge */}
-      <View pointerEvents="none" style={s.topHighlight} />
-      {children}
-    </View>
-  );
-}
-
-export function GlassBottomSheet({
-  visible,
-  onClose,
-  children,
-  scroll = false,
-  fallback = false,
+  scroll = true,
   contentStyle,
 }: {
-  visible: boolean;
-  onClose: () => void;
   children: ReactNode;
-  /** Scroll the body (long sheets). Default false = fit-to-content. */
   scroll?: boolean;
-  /** Force the opaque look on iOS too. */
-  fallback?: boolean;
   contentStyle?: StyleProp<ViewStyle>;
 }) {
-  const body =
-    scroll === true ? (
+  // Transparent on iOS so the OS Liquid Glass shows through; opaque on Android.
+  const background = Platform.OS === "ios" ? "transparent" : c.surface;
+
+  if (!scroll) {
+    return (
+      <View style={[styles.root, { backgroundColor: background }]}>
+        <View style={[{ paddingBottom: SHEET_BOTTOM }, contentStyle]}>{children}</View>
+      </View>
+    );
+  }
+  return (
+    <View style={[styles.root, { backgroundColor: background }]}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
@@ -91,23 +58,7 @@ export function GlassBottomSheet({
       >
         {children}
       </ScrollView>
-    ) : (
-      <View style={[{ paddingBottom: SHEET_BOTTOM }, contentStyle]}>{children}</View>
-    );
-
-  return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      statusBarTranslucent
-      onRequestClose={onClose}
-    >
-      <View style={s.backdrop}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Close sheet" />
-        <SheetBody fallback={fallback}>{body}</SheetBody>
-      </View>
-    </Modal>
+    </View>
   );
 }
 
@@ -127,14 +78,14 @@ export function SheetHeader({
 }) {
   const closeBtn = showClose ? (
     <Pressable onPress={onClose} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close">
-      <Text style={s.close}>✕</Text>
+      <Text style={styles.close}>✕</Text>
     </Pressable>
   ) : null;
 
   const titleText = title ? (
     <Text
       style={[
-        s.title,
+        styles.title,
         { textAlign: align === "center" ? "center" : "left" },
         align === "center" ? { flex: 1 } : null,
       ]}
@@ -146,20 +97,20 @@ export function SheetHeader({
   return (
     <View style={{ paddingTop: SHEET_HEADER_TOP, paddingHorizontal: SHEET_PADDING_X }}>
       {align === "center" && title ? (
-        <View style={s.rowCenter}>
+        <View style={styles.rowCenter}>
           {titleText}
-          {closeBtn && <View style={s.closeRight}>{closeBtn}</View>}
+          {closeBtn && <View style={styles.closeRight}>{closeBtn}</View>}
         </View>
       ) : title ? (
-        <View style={s.rowBetween}>
+        <View style={styles.rowBetween}>
           {titleText}
           {closeBtn}
         </View>
       ) : (
-        closeBtn && <View style={s.rowEnd}>{closeBtn}</View>
+        closeBtn && <View style={styles.rowEnd}>{closeBtn}</View>
       )}
 
-      {subtitle && <Text style={s.subtitle}>{subtitle}</Text>}
+      {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
     </View>
   );
 }
@@ -169,20 +120,8 @@ export function SheetDivider({ inset = SHEET_PADDING_X }: { inset?: number }) {
   return <View style={{ height: 1, backgroundColor: c.border, marginHorizontal: inset }} />;
 }
 
-const s = StyleSheet.create({
-  backdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.55)" },
-  grabberWrap: { alignItems: "center", paddingTop: 8 },
-  grabber: { width: 40, height: 5, borderRadius: radius.pill, backgroundColor: "rgba(255,255,255,0.22)" },
-  topHighlight: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 1,
-    borderTopLeftRadius: SHEET_CORNER_RADIUS,
-    borderTopRightRadius: SHEET_CORNER_RADIUS,
-    backgroundColor: "rgba(255,255,255,0.16)",
-  },
+const styles = StyleSheet.create({
+  root: { flex: 1 },
   rowCenter: { flexDirection: "row", alignItems: "center", justifyContent: "center" },
   rowBetween: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   rowEnd: { flexDirection: "row", justifyContent: "flex-end" },
