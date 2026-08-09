@@ -8,10 +8,10 @@ a goal, and see the Spend Firewall in action. Talks to the Otto backend
 
 ```bash
 # 1. start the backend first (in ~/Desktop/otto)
-cd ~/Desktop/otto && npm run dev        # http://localhost:8787
+cd ~/Desktop/otto && pnpm dev        # http://localhost:8787
 
 # 2. start the app (in ~/Desktop/otto/mobile)
-cd ~/Desktop/otto/mobile && npm start
+cd ~/Desktop/otto/mobile && pnpm start
 #   press  i  -> iOS simulator   (localhost works here)
 #   press  w  -> web
 ```
@@ -21,7 +21,7 @@ Your phone can't reach your computer's `localhost`. Point the app at your
 computer's LAN IP:
 
 ```bash
-export EXPO_PUBLIC_OTTO_API=http://$(ipconfig getifaddr en0):8787   # then: npm start
+export EXPO_PUBLIC_OTTO_API=http://$(ipconfig getifaddr en0):8787   # then: pnpm start
 ```
 
 ## What's here (the base — extend this tomorrow)

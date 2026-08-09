@@ -22,14 +22,14 @@ everything else.**
 ## Quick start (works right now, no wallet needed)
 
 ```bash
-npm install
-npm run dev          # starts Otto on http://localhost:8787 (mock rail)
+pnpm install
+pnpm dev          # starts Otto on http://localhost:8787 (mock rail)
 ```
 
 In another terminal:
 
 ```bash
-npm run demo         # scripted walk-through: earn → work → firewall block
+pnpm demo         # scripted walk-through: earn → work → firewall block
 ```
 
 Or drive it directly:
@@ -85,7 +85,7 @@ straight into your dashboard so money animates live on stage.
 
 See **`SETUP.md`** — the pre-hackathon checklist and the go/no-go dry run. Short
 version: fund a testnet wallet, set `RAIL=algorand` + `PAYER_MNEMONIC` in `.env`,
-run `npm run dry-run`, confirm a real tx id. That's the gate that says x402 is
+run `pnpm dry-run`, confirm a real tx id. That's the gate that says x402 is
 safe to build on.
 
 ## Layout

@@ -11,12 +11,12 @@ already done for you.
 
 ```bash
 cd ~/Desktop/otto
-npm install
-npm run typecheck        # should print nothing (clean)
-npm test                 # 2 tests pass
-npm run dry-run          # MOCK settlement passes, prints a tx id
-npm run dev              # server boots on :8787
-npm run demo             # (other terminal) full earn→work→block walkthrough
+pnpm install
+pnpm typecheck        # should print nothing (clean)
+pnpm test                 # 2 tests pass
+pnpm dry-run          # MOCK settlement passes, prints a tx id
+pnpm dev              # server boots on :8787
+pnpm demo             # (other terminal) full earn→work→block walkthrough
 ```
 
 If all of that works, **the entire product is proven in mock mode.** You could
@@ -32,10 +32,10 @@ fails after a genuine attempt, **pivot to the Corsair track** — do not walk in
 
 > ⚠️ **Not MetaMask.** This track is Algorand, not Ethereum — MetaMask can't sign
 > Algorand transactions. Use an Algorand wallet (Pera / Defly / Lute) **or** just
-> run `npm run gen-wallet` to mint a testnet account instantly.
+> run `pnpm gen-wallet` to mint a testnet account instantly.
 
 ### 1. Create the account(s)
-Fastest: `npm run gen-wallet` — prints a fresh TestNet address + 25-word
+Fastest: `pnpm gen-wallet` — prints a fresh TestNet address + 25-word
 mnemonic. (Or export one from **Pera Wallet**.) You need at least the **payer**
 (what Otto spends from). A separate **receiver** is optional — leave
 `RECEIVER_ADDRESS` blank and Otto receives into the payer account.
@@ -70,8 +70,8 @@ USDC_ASSET_ID=<confirmed id>
 
 ### 6. Run the real dry run
 ```bash
-npm run check-wallet   # confirms ALGO funded + USDC opted-in + USDC balance
-npm run dry-run        # only after check-wallet is all ✅
+pnpm check-wallet   # confirms ALGO funded + USDC opted-in + USDC balance
+pnpm dry-run        # only after check-wallet is all ✅
 ```
 **Success** = it prints a real `tx id` and an explorer link. Open the link — if
 the transaction is there, **x402 is GO. ✅** You've solved the risky 30% of the

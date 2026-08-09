@@ -7,19 +7,19 @@ ordered runbook for Aug 10.
 
 ```bash
 cd ~/Desktop/otto
-npm install                 # if on a fresh machine
-npm run typecheck && npm test && npm run dry-run   # all green = base is intact
+pnpm install                 # if on a fresh machine
+pnpm typecheck && pnpm test && pnpm dry-run   # all green = base is intact
 ```
 
 Go real (the one thing that needs your wallet):
 
 ```bash
-npm run gen-wallet          # mint a TestNet account (or export from Pera)
+pnpm gen-wallet          # mint a TestNet account (or export from Pera)
 #  → put RAIL=algorand + PAYER_MNEMONIC in .env
 #  → fund ALGO:  https://bank.testnet.algorand.network/
 #  → get USDC :  https://faucet.circle.com/  (Algorand TestNet)
-npm run check-wallet        # must be all ✅
-npm run dry-run             # prints a REAL tx id + explorer link = x402 is GO
+pnpm check-wallet        # must be all ✅
+pnpm dry-run             # prints a REAL tx id + explorer link = x402 is GO
 ```
 
 If `dry-run` shows a real tx id, screenshot it. That's your proof the 30%
@@ -28,10 +28,10 @@ protocol criterion is fully satisfied.
 ## Running it during the build
 
 ```bash
-npm run dev                 # backend + built-in dashboard
+pnpm dev                 # backend + built-in dashboard
 # open http://localhost:8787/app    (the demo UI)
 # open http://localhost:8787/       (API index)
-npm run demo                # scripted earn → spend → firewall (another terminal)
+pnpm demo                # scripted earn → spend → firewall (another terminal)
 ```
 
 ## What you build tomorrow (the fun part)
@@ -48,7 +48,7 @@ npm run demo                # scripted earn → spend → firewall (another term
 ## If something breaks
 | Problem | Do this |
 |---|---|
-| dry-run fails on chain | `npm run check-wallet` — fix the ❌ items |
+| dry-run fails on chain | `pnpm check-wallet` — fix the ❌ items |
 | server won't start | check nothing else is on `:8787` (change `PORT` in .env) |
 | facilitator settle errors | fall back to direct algod (default) — it already satisfies the rubric |
 | totally stuck on-chain | `RAIL=mock` — the whole product still demos end-to-end |

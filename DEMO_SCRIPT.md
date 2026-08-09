@@ -43,7 +43,7 @@ Three live panels, all fed by `GET /api/stream` (SSE):
    `blocked` comes back, flash the firewall banner.
 
 ## Pre-demo checklist
-- [ ] `.env` is `RAIL=algorand` and `npm run dry-run` passed today
+- [ ] `.env` is `RAIL=algorand` and `pnpm dry-run` passed today
 - [ ] Payer wallet has test ALGO **and** test USDC, both opted in
 - [ ] A backup: if testnet is down, `RAIL=mock` gives an identical-looking demo
       instantly (say so honestly only if asked — the tx ids are labelled MOCK)
