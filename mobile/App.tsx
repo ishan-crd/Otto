@@ -138,6 +138,7 @@ export default function App() {
             onChangeText={setGoal}
             placeholder="e.g. plan a weekend trip to Goa"
             placeholderTextColor={c.muted}
+            keyboardAppearance="dark"
           />
           <Text style={s.hint}>Budget (USDC) — set low to trip the firewall</Text>
           <TextInput
@@ -146,6 +147,7 @@ export default function App() {
             onChangeText={setBudget}
             keyboardType="decimal-pad"
             placeholderTextColor={c.muted}
+            keyboardAppearance="dark"
           />
           <View style={s.row}>
             <Pressable style={[s.btn, s.primary]} onPress={runOtto} disabled={running}>
