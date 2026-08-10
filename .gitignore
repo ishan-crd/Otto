@@ -8,3 +8,6 @@ dist/
 # Expo app
 mobile/node_modules/
 mobile/.expo/
+
+# Otto auto-provisioned testnet key
+web/.otto-wallet.json

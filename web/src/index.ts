@@ -6,7 +6,7 @@ import { PAY_PAGE_HTML } from "./api/payPage";
 import { DASHBOARD_HTML } from "./api/webPage";
 import { config, fmtUsdc } from "./config";
 import { SERVICES } from "./services/registry";
-import { liveEnabled, mountLive } from "./x402/liveServices";
+import { liveEnabled, mountLive, ottoAddress } from "./x402/liveServices";
 import { paid } from "./x402/middleware";
 
 const app = new Hono();
@@ -62,7 +62,12 @@ export function startServer(port = config.PORT) {
     );
     console.log(`     API index: http://localhost:${info.port}/api`);
     console.log(
-      `     rail: ${config.RAIL.toUpperCase()}  |  live payments: ${liveEnabled() ? "ON (Algorand)" : "off — set RECEIVER_ADDRESS"}\n`,
+      `     rail: ${config.RAIL.toUpperCase()}  |  live x402: ${liveEnabled() ? "ON (Algorand TestNet)" : "off"}`,
+    );
+    console.log(`     Otto's account: ${ottoAddress()}`);
+    console.log(`     → fund it (test ALGO):  https://bank.testnet.algorand.network/`);
+    console.log(
+      `     → then open /pay and click "Opt in to USDC" + get USDC: https://faucet.circle.com/\n`,
     );
   });
 }
