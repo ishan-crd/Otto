@@ -153,7 +153,11 @@ async function makeWallet(kind){
       signB64:async function(txn){ var b64=u8ToB64(algosdk.encodeUnsignedTransaction(txn)); var res=await lute.signTxns([{txn:b64}]); var s=res[0]; return (typeof s==='string')?s:u8ToB64(s); } };
   }
   var mod=await import('https://esm.sh/@perawallet/connect@1'); var pera=new mod.PeraWalletConnect({ chainId:S.info.chainId });
-  return { connect:function(){ return pera.connect(); },
+  return { connect:async function(){
+      try { var ex=await pera.reconnectSession(); if(ex && ex.length) return ex; } catch(e){}
+      try { return await pera.connect(); }
+      catch(e){ if(String(e).indexOf('Session currently connected')>=0){ try{ await pera.disconnect(); }catch(_){} return await pera.connect(); } throw e; }
+    },
     signB64:async function(txn){ var s=await pera.signTransaction([[{ txn:txn, signers:[S.address] }]]); return u8ToB64(s[0]); } };
 }
 async function payWallet(kind){

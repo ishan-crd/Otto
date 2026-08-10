@@ -142,6 +142,7 @@ async function boot(){
   el('ottoAddr').textContent = S.info.receiver;
   el('ottoAddr').onclick = function(){ navigator.clipboard && navigator.clipboard.writeText(S.info.receiver); el('ottoAddr').textContent = S.info.receiver+'  (copied)'; setTimeout(function(){ el('ottoAddr').textContent = S.info.receiver; }, 1400); };
   renderWallet();
+  tryReconnectPera();
   await refreshStatus();
   setInterval(refreshStatus, 5000);
 }
@@ -200,16 +201,42 @@ async function makeWallet(kind){
     };
   }
   var mod = await import('https://esm.sh/@perawallet/connect@1');
-  var pera = new mod.PeraWalletConnect({ chainId: S.info.chainId });
+  return peraWrapper(new mod.PeraWalletConnect({ chainId: S.info.chainId }));
+}
+
+function peraWrapper(pera){
   return {
     kind:'pera', label:'Pera',
-    connect: function(){ return pera.connect(); },
+    connect: async function(){
+      // Adopt an existing WalletConnect session instead of erroring on it.
+      try { var ex = await pera.reconnectSession(); if (ex && ex.length) return ex; } catch(e){}
+      try { return await pera.connect(); }
+      catch(e){
+        if (String(e).indexOf('Session currently connected') >= 0){
+          try { await pera.disconnect(); } catch(_){}
+          return await pera.connect();
+        }
+        throw e;
+      }
+    },
     disconnect: function(){ try { pera.disconnect(); } catch(e){} },
     signB64: async function(txn){
       var s = await pera.signTransaction([[{ txn: txn, signers:[S.address] }]]);
       return u8ToB64(s[0]);
     }
   };
+}
+
+/** If Pera was connected before (session survives reloads), restore it silently
+ *  so the page opens already-connected with the Disconnect button visible. */
+async function tryReconnectPera(){
+  if (!algosdk || S.address) return;
+  try {
+    var mod = await import('https://esm.sh/@perawallet/connect@1');
+    var pera = new mod.PeraWalletConnect({ chainId: S.info.chainId });
+    var accs = await pera.reconnectSession();
+    if (accs && accs.length){ S.wallet = peraWrapper(pera); S.address = accs[0]; await refreshAccount(); }
+  } catch(e){}
 }
 
 async function connect(kind){
