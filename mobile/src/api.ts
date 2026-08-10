@@ -109,10 +109,50 @@ export interface Stats {
 export interface LiveInfo {
   enabled: boolean;
   network: string;
+  chainId?: number;
   assetId: number;
   receiver: string | null;
+  algodServer?: string;
+  algodPort?: number;
   explorerBase: string;
 }
+
+/** Live readiness of Otto's on-chain account (GET /api/live/status). */
+export interface LiveStatus {
+  address: string;
+  algo: number;
+  funded: boolean;
+  optedIn: boolean;
+  usdc: number;
+}
+
+/** A live pay-per-call service Otto sells (GET /api/live/services). */
+export interface LiveService {
+  id: string;
+  path: string;
+  priceMicro: number;
+  priceUsdc: number;
+  price: string;
+  description: string;
+}
+
+export interface OptinResult {
+  ok: boolean;
+  txId?: string;
+  explorerUrl?: string;
+  detail?: string;
+}
+
+export interface SelfPayResult {
+  ok: boolean;
+  serviceId?: string;
+  settle?: Record<string, unknown>;
+  result?: unknown;
+  detail?: string;
+}
+
+/** Testnet account explorer (AlgoKit lora) — append an address. */
+export const ACCOUNT_EXPLORER = "https://lora.algokit.io/testnet/account/";
 
 async function jget<T>(path: string): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`);
@@ -135,6 +175,11 @@ export const otto = {
   ledger: () => jget<{ entries: LedgerEntry[] }>("/api/ledger"),
   stats: () => jget<Stats>("/api/stats"),
   liveInfo: () => jget<LiveInfo>("/api/live/info"),
+  liveStatus: () => jget<LiveStatus>("/api/live/status"),
+  liveServices: () => jget<{ services: LiveService[] }>("/api/live/services"),
+  optin: () => jsend<OptinResult>("POST", "/api/live/optin"),
+  selfPay: (serviceId: string, text?: string) =>
+    jsend<SelfPayResult>("POST", "/api/live/self-pay", { serviceId, text }),
 
   tasks: () => jget<{ tasks: Task[] }>("/api/tasks"),
   task: (id: string) => jget<Task>(`/api/tasks/${id}`),

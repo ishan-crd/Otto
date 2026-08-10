@@ -1,14 +1,13 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
-import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import {
   type LedgerEntry,
   type LiveInfo,
   money,
   otto,
-  PAY_URL,
   type Stats,
   shortTx,
   type WalletSnapshot,
@@ -118,7 +117,7 @@ export default function Wallet() {
             strokeLinejoin="round"
           />
         </ActionButton>
-        <ActionButton label="Pay live" onPress={() => void Linking.openURL(PAY_URL)}>
+        <ActionButton label="Pay live" onPress={() => router.push("/pay")}>
           <Path
             d="M9.5 14.5l5-5M8 12l-2.2 2.2a3.5 3.5 0 004.9 4.9L13 17M16 12l2.2-2.2a3.5 3.5 0 00-4.9-4.9L11 7"
             stroke={c.accentBright}

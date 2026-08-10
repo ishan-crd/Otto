@@ -58,6 +58,7 @@ export default function RootLayout() {
         >
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="agent/[title]" options={{ animation: "slide_from_right" }} />
+          <Stack.Screen name="pay" options={{ animation: "slide_from_right" }} />
           {SHEETS.map((name) => (
             <Stack.Screen key={name} name={`sheet/${name}`} options={sheetOptions} />
           ))}

@@ -1,8 +1,14 @@
 /**
- * Small app-wide state that must outlive the native formSheet routes: which
- * wallets are connected, and a toast for confirmations (connect / hire). The
- * sheets themselves are plain routes (app/sheet/*) presented as OS formSheets;
- * this only holds the bits they can't own locally.
+ * Small app-wide state that must outlive the native formSheet routes:
+ *
+ *  - Otto's on-chain wallet connection — mirrors the web dashboard's "Connect
+ *    wallet" button. The account itself always exists server-side (Otto
+ *    auto-provisions it); "connecting" just surfaces it in the app and starts
+ *    polling /api/live/status (funded / opted-in / USDC balance).
+ *  - A toast for confirmations (connect / hire / opt-in).
+ *
+ * The sheets themselves are plain routes (app/sheet/*) presented as OS
+ * formSheets; this holds the bits they can't own locally.
  */
 import {
   createContext,
@@ -15,11 +21,16 @@ import {
   useState,
 } from "react";
 import { Animated, Easing, StyleSheet, Text, View } from "react-native";
+import { type LiveInfo, type LiveStatus, otto } from "../api";
 import { c, font } from "../theme";
 
 interface AppStateApi {
-  connected: string[];
-  connect: (key: string, name: string) => void;
+  walletConnected: boolean;
+  liveInfo: LiveInfo | null;
+  liveStatus: LiveStatus | null;
+  connectWallet: () => Promise<void>;
+  disconnectWallet: () => void;
+  refreshWallet: () => Promise<void>;
   toast: (text: string) => void;
 }
 
@@ -32,11 +43,13 @@ export function useAppState(): AppStateApi {
 }
 
 export function AppStateProvider({ children }: { children: ReactNode }) {
-  const [connected, setConnected] = useState<string[]>(["base"]);
+  const [walletConnected, setWalletConnected] = useState(false);
+  const [liveInfo, setLiveInfo] = useState<LiveInfo | null>(null);
+  const [liveStatus, setLiveStatus] = useState<LiveStatus | null>(null);
   const [toastText, setToastText] = useState("");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const connectedRef = useRef(connected);
-  connectedRef.current = connected;
+  const connectedRef = useRef(false);
+  connectedRef.current = walletConnected;
 
   const toast = useCallback((text: string) => {
     setToastText(text);
@@ -44,14 +57,35 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     timer.current = setTimeout(() => setToastText(""), 2600);
   }, []);
 
-  const connect = useCallback(
-    (key: string, name: string) => {
-      if (connectedRef.current.includes(key)) return;
-      setConnected((cs) => [...cs, key]);
-      toast(`${name} connected`);
-    },
-    [toast],
-  );
+  const refreshWallet = useCallback(async () => {
+    try {
+      const [info, status] = await Promise.all([otto.liveInfo(), otto.liveStatus()]);
+      setLiveInfo(info);
+      setLiveStatus(status);
+    } catch {
+      /* server unreachable — leave the last known snapshot */
+    }
+  }, []);
+
+  const connectWallet = useCallback(async () => {
+    setWalletConnected(true);
+    await refreshWallet();
+    toast("✓ Wallet connected — Otto's TestNet account is live");
+  }, [refreshWallet, toast]);
+
+  const disconnectWallet = useCallback(() => {
+    setWalletConnected(false);
+    setLiveStatus(null);
+  }, []);
+
+  // Poll the on-chain status while connected so funded/opted-in/balance stay live.
+  useEffect(() => {
+    if (!walletConnected) return;
+    const p = setInterval(() => {
+      if (connectedRef.current) void refreshWallet();
+    }, 6000);
+    return () => clearInterval(p);
+  }, [walletConnected, refreshWallet]);
 
   useEffect(
     () => () => {
@@ -61,8 +95,16 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   );
 
   const api = useMemo<AppStateApi>(
-    () => ({ connected, connect, toast }),
-    [connected, connect, toast],
+    () => ({
+      walletConnected,
+      liveInfo,
+      liveStatus,
+      connectWallet,
+      disconnectWallet,
+      refreshWallet,
+      toast,
+    }),
+    [walletConnected, liveInfo, liveStatus, connectWallet, disconnectWallet, refreshWallet, toast],
   );
 
   return (

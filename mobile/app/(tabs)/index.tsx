@@ -5,17 +5,21 @@ import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { type LedgerEntry, money, otto, type Task, type WalletSnapshot } from "../../src/api";
 import { useAppState } from "../../src/components/AppState";
 import { receiptParams } from "../../src/components/sheet-nav";
-import { LiveDot, Mono, OttoMark, ProgressBar, Screen } from "../../src/components/ui";
+import { LiveDot, Mono, ProgressBar, Screen } from "../../src/components/ui";
 import { FEED, HERO, type Row } from "../../src/data";
 import { c, font, grad, tabular, usd } from "../../src/theme";
 
+const BUDGET_CHIPS = [0.5, 2, 5, 10];
+
 export default function Home() {
   const router = useRouter();
-  const { toast } = useAppState();
+  const { toast, walletConnected, liveStatus } = useAppState();
   const [wallet, setWallet] = useState<WalletSnapshot | null>(null);
   const [live, setLive] = useState<Row[] | null>(null);
   const [task, setTask] = useState<Task | null>(null);
   const [goal, setGoal] = useState("");
+  const [budget, setBudget] = useState(2);
+  const [budgetText, setBudgetText] = useState("2.00");
   const [starting, setStarting] = useState(false);
   const [tick, setTick] = useState(0);
 
@@ -38,7 +42,7 @@ export default function Home() {
     if (!g || starting) return;
     setStarting(true);
     try {
-      await otto.startTask(g);
+      await otto.startTask(g, budget > 0 ? budget : 2);
       setGoal("");
       router.push("/task");
     } catch (err) {
@@ -46,7 +50,17 @@ export default function Home() {
     } finally {
       setStarting(false);
     }
-  }, [goal, starting, router, toast]);
+  }, [goal, budget, starting, router, toast]);
+
+  const pickChip = useCallback((v: number) => {
+    setBudget(v);
+    setBudgetText(v.toFixed(2));
+  }, []);
+  const onBudgetText = useCallback((t: string) => {
+    setBudgetText(t);
+    const n = Number.parseFloat(t);
+    if (Number.isFinite(n) && n > 0) setBudget(n);
+  }, []);
 
   useEffect(() => {
     poll();
@@ -69,7 +83,33 @@ export default function Home() {
           <Text style={s.hi}>Good morning, Mira</Text>
           <Text style={s.hiBig}>Otto is working</Text>
         </View>
-        <OttoMark size={42} />
+        <Pressable
+          onPress={() => router.push("/sheet/connect")}
+          style={({ pressed }) => [
+            s.walletChip,
+            walletConnected && s.walletChipOn,
+            pressed && { opacity: 0.7 },
+          ]}
+        >
+          {walletConnected ? (
+            <>
+              <View
+                style={[
+                  s.wDot,
+                  {
+                    backgroundColor: liveStatus?.funded && liveStatus?.optedIn ? c.earn : "#FFCE7A",
+                  },
+                ]}
+              />
+              <Mono style={{ fontSize: 12 }}>{liveStatus ? money(liveStatus.usdc) : "· · ·"}</Mono>
+            </>
+          ) : (
+            <>
+              <View style={[s.wDot, { backgroundColor: c.accentBright }]} />
+              <Text style={s.walletChipText}>Connect</Text>
+            </>
+          )}
+        </Pressable>
       </View>
 
       {/* Agent wallet hero */}
@@ -117,7 +157,11 @@ export default function Home() {
         </View>
       </LinearGradient>
 
-      {/* Give Otto a task */}
+      {/* Make an agent complete something for you */}
+      <Text style={s.composerTitle}>Make an agent do something for you</Text>
+      <Text style={s.composerSub}>
+        Otto plans it, hires specialist agents, and pays each per task — never over your budget.
+      </Text>
       <View style={s.goalRow}>
         <TextInput
           value={goal}
@@ -142,6 +186,32 @@ export default function Home() {
             <Text style={s.goalBtnText}>{starting ? "…" : "Run"}</Text>
           </LinearGradient>
         </Pressable>
+      </View>
+
+      {/* Budget chooser — enforced by the spend firewall */}
+      <View style={s.budgetRow}>
+        <Text style={s.budgetLabel}>BUDGET</Text>
+        {BUDGET_CHIPS.map((v) => {
+          const on = budget === v;
+          return (
+            <Pressable key={v} onPress={() => pickChip(v)} style={[s.bChip, on && s.bChipOn]}>
+              <Mono color={on ? c.text : c.muted} style={{ fontSize: 12 }}>
+                ${v % 1 === 0 ? v.toFixed(0) : v.toFixed(2)}
+              </Mono>
+            </Pressable>
+          );
+        })}
+        <View style={s.bCustom}>
+          <Text style={s.bCustomDollar}>$</Text>
+          <TextInput
+            value={budgetText}
+            onChangeText={onBudgetText}
+            keyboardType="decimal-pad"
+            keyboardAppearance="dark"
+            style={s.bCustomInput}
+            selectTextOnFocus
+          />
+        </View>
       </View>
 
       {/* Latest task → Active task tab */}
@@ -331,6 +401,82 @@ const s = StyleSheet.create({
   statPill: { flex: 1, padding: 12, borderRadius: 16, borderWidth: 1 },
   statLabel: { color: c.faint, fontSize: 10, letterSpacing: 0.4, fontFamily: font.regular },
   statVal: { fontSize: 15, marginTop: 4, ...tabular },
+
+  walletChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    height: 36,
+    paddingHorizontal: 13,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+    backgroundColor: "rgba(255,255,255,0.045)",
+  },
+  walletChipOn: {
+    borderColor: "rgba(143,227,180,0.24)",
+    backgroundColor: "rgba(143,227,180,0.06)",
+  },
+  walletChipText: { color: c.text, fontSize: 12.5, fontFamily: font.medium },
+  wDot: { width: 7, height: 7, borderRadius: 4 },
+
+  composerTitle: {
+    color: c.text,
+    fontSize: 16,
+    fontFamily: font.semibold,
+    letterSpacing: -0.3,
+    marginTop: 22,
+  },
+  composerSub: {
+    color: c.muted,
+    fontSize: 12,
+    marginTop: 4,
+    lineHeight: 17,
+    fontFamily: font.regular,
+  },
+
+  budgetRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 12,
+    flexWrap: "wrap",
+  },
+  budgetLabel: { color: c.faint, fontSize: 10.5, letterSpacing: 0.8, fontFamily: font.medium },
+  bChip: {
+    height: 34,
+    paddingHorizontal: 12,
+    borderRadius: 11,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+    backgroundColor: "rgba(255,255,255,0.03)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  bChipOn: {
+    borderColor: "rgba(169,160,255,0.34)",
+    backgroundColor: "rgba(169,160,255,0.16)",
+  },
+  bCustom: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    height: 34,
+    paddingHorizontal: 10,
+    borderRadius: 11,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+    backgroundColor: "rgba(10,10,11,0.5)",
+  },
+  bCustomDollar: { color: c.faint, fontSize: 12.5, fontFamily: font.mono },
+  bCustomInput: {
+    minWidth: 44,
+    color: c.text,
+    fontSize: 12.5,
+    fontFamily: font.mono,
+    padding: 0,
+    ...tabular,
+  },
 
   goalRow: { flexDirection: "row", gap: 9, marginTop: 14 },
   goalInput: {

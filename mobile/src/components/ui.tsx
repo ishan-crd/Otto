@@ -50,12 +50,18 @@ export function Mono({
   children,
   style,
   color,
+  selectable,
 }: {
   children: ReactNode;
   style?: StyleProp<TextStyle>;
   color?: string;
+  selectable?: boolean;
 }) {
-  return <Text style={[styles.mono, color ? { color } : null, style]}>{children}</Text>;
+  return (
+    <Text selectable={selectable} style={[styles.mono, color ? { color } : null, style]}>
+      {children}
+    </Text>
+  );
 }
 
 /* ---------------------------------------------------------------- Glass --- */
