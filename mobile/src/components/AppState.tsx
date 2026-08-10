@@ -10,6 +10,8 @@
  * The sheets themselves are plain routes (app/sheet/*) presented as OS
  * formSheets; this holds the bits they can't own locally.
  */
+
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   createContext,
   type ReactNode,
@@ -21,10 +23,15 @@ import {
   useState,
 } from "react";
 import { Animated, Easing, StyleSheet, Text, View } from "react-native";
-import { type LiveInfo, type LiveStatus, otto } from "../api";
+import { type AuthUser, type LiveInfo, type LiveStatus, otto, setAuthToken } from "../api";
 import { c, font } from "../theme";
 
 interface AppStateApi {
+  user: AuthUser | null;
+  authReady: boolean;
+  signIn: (email: string, password: string) => Promise<void>;
+  signUp: (name: string, email: string, password: string) => Promise<boolean>; // true = confirm email
+  signOut: () => Promise<void>;
   walletConnected: boolean;
   liveInfo: LiveInfo | null;
   liveStatus: LiveStatus | null;
@@ -33,6 +40,8 @@ interface AppStateApi {
   refreshWallet: () => Promise<void>;
   toast: (text: string) => void;
 }
+
+const TOKEN_KEY = "otto_token";
 
 const Ctx = createContext<AppStateApi | null>(null);
 
@@ -43,6 +52,8 @@ export function useAppState(): AppStateApi {
 }
 
 export function AppStateProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [authReady, setAuthReady] = useState(false);
   const [walletConnected, setWalletConnected] = useState(false);
   const [liveInfo, setLiveInfo] = useState<LiveInfo | null>(null);
   const [liveStatus, setLiveStatus] = useState<LiveStatus | null>(null);
@@ -55,6 +66,50 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     setToastText(text);
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => setToastText(""), 2600);
+  }, []);
+
+  // Restore the Supabase session from storage on launch.
+  useEffect(() => {
+    (async () => {
+      try {
+        const token = await AsyncStorage.getItem(TOKEN_KEY);
+        if (token) {
+          setAuthToken(token);
+          const me = await otto.me();
+          setUser(me.user);
+        }
+      } catch {
+        setAuthToken(null);
+        await AsyncStorage.removeItem(TOKEN_KEY).catch(() => {});
+      } finally {
+        setAuthReady(true);
+      }
+    })();
+  }, []);
+
+  const signIn = useCallback(async (email: string, password: string) => {
+    const r = await otto.login(email, password);
+    if (!r.token || !r.user) throw new Error("login failed");
+    setAuthToken(r.token);
+    await AsyncStorage.setItem(TOKEN_KEY, r.token);
+    setUser(r.user);
+  }, []);
+
+  const signUp = useCallback(async (name: string, email: string, password: string) => {
+    const r = await otto.signup(name, email, password);
+    if (r.confirmEmail) return true;
+    if (!r.token || !r.user) throw new Error("signup failed");
+    setAuthToken(r.token);
+    await AsyncStorage.setItem(TOKEN_KEY, r.token);
+    setUser(r.user);
+    return false;
+  }, []);
+
+  const signOut = useCallback(async () => {
+    await otto.logout().catch(() => {});
+    setAuthToken(null);
+    await AsyncStorage.removeItem(TOKEN_KEY).catch(() => {});
+    setUser(null);
   }, []);
 
   const refreshWallet = useCallback(async () => {
@@ -96,6 +151,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
   const api = useMemo<AppStateApi>(
     () => ({
+      user,
+      authReady,
+      signIn,
+      signUp,
+      signOut,
       walletConnected,
       liveInfo,
       liveStatus,
@@ -104,7 +164,20 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       refreshWallet,
       toast,
     }),
-    [walletConnected, liveInfo, liveStatus, connectWallet, disconnectWallet, refreshWallet, toast],
+    [
+      user,
+      authReady,
+      signIn,
+      signUp,
+      signOut,
+      walletConnected,
+      liveInfo,
+      liveStatus,
+      connectWallet,
+      disconnectWallet,
+      refreshWallet,
+      toast,
+    ],
   );
 
   return (

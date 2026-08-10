@@ -84,12 +84,103 @@ export async function getSupaUser(c: Context): Promise<SupaUser | null> {
   return status === 200 && body.id ? toUser(body) : null;
 }
 
-/** Append a purchase to the user's history (kept in their Supabase metadata). */
+/* ── purchases table (PostgREST + RLS) with metadata fallback ──────────────
+ * If supabase/migrations/0001_purchases.sql has been applied, purchases go to
+ * the real table (each user's JWT + row-level security — no service key).
+ * Until then they live in auth user metadata, so the app works either way. */
+
+let tableMode: boolean | null = null;
+
+async function rest(path: string, init: RequestInit = {}, bearer?: string): Promise<Response> {
+  return fetch(`${base()}/rest/v1${path}`, {
+    ...init,
+    headers: {
+      apikey: config.supabaseKey,
+      authorization: `Bearer ${bearer ?? config.supabaseKey}`,
+      "content-type": "application/json",
+      ...(init.headers ?? {}),
+    },
+  });
+}
+
+export async function purchasesTableReady(): Promise<boolean> {
+  if (tableMode !== null) return tableMode;
+  try {
+    const res = await rest("/purchases?select=id&limit=1");
+    tableMode = res.status !== 404;
+    if (!tableMode) {
+      const body = (await res.json().catch(() => ({}))) as { code?: string };
+      tableMode = body.code !== "PGRST205";
+    }
+  } catch {
+    tableMode = null; // network hiccup — try again next call
+    return false;
+  }
+  return tableMode ?? false;
+}
+
+interface PurchaseRow {
+  prompt: string;
+  model: string;
+  output_tokens: number;
+  price_usdc: number | string;
+  tx_id: string;
+  explorer_url: string;
+  created_at: string;
+}
+
+/** Append a purchase to the user's history (table if migrated, else metadata). */
 export async function recordPurchase(token: string, entry: PurchaseRecord): Promise<void> {
   const { status, body } = await gotrue<GoTrueUser>("/user", { method: "GET" }, token);
   if (status !== 200 || !body.id) return;
+  if (await purchasesTableReady()) {
+    const res = await rest(
+      "/purchases",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          user_id: body.id,
+          prompt: entry.prompt,
+          model: entry.model,
+          output_tokens: entry.outputTokens,
+          price_usdc: entry.priceUsdc,
+          tx_id: entry.txId,
+          explorer_url: entry.explorerUrl,
+        }),
+      },
+      token,
+    );
+    if (res.ok) return;
+  }
   const purchases = [entry, ...(body.user_metadata?.purchases ?? [])].slice(0, 25);
   await gotrue("/user", { method: "PUT", body: JSON.stringify({ data: { purchases } }) }, token);
+}
+
+/** The user's purchase history — table when available, else metadata. */
+export async function listPurchases(
+  token: string,
+  meta: PurchaseRecord[],
+): Promise<PurchaseRecord[]> {
+  if (await purchasesTableReady()) {
+    const res = await rest(
+      "/purchases?select=prompt,model,output_tokens,price_usdc,tx_id,explorer_url,created_at&order=created_at.desc&limit=25",
+      { method: "GET" },
+      token,
+    );
+    if (res.ok) {
+      const rows = (await res.json().catch(() => [])) as PurchaseRow[];
+      return rows.map((r) => ({
+        prompt: r.prompt,
+        model: r.model,
+        outputTokens: r.output_tokens,
+        priceUsdc: Number(r.price_usdc),
+        txId: r.tx_id,
+        explorerUrl: r.explorer_url,
+        at: r.created_at,
+      }));
+    }
+  }
+  return meta;
 }
 
 export function mountSupaAuth(app: Hono) {
@@ -153,7 +244,9 @@ export function mountSupaAuth(app: Hono) {
   app.get("/api/prompt/history", async (c) => {
     const user = await getSupaUser(c);
     if (!user) return c.json({ error: "not_authenticated" }, 401);
-    return c.json({ purchases: user.purchases });
+    const auth = c.req.header("Authorization") ?? "";
+    const token = auth.slice(7);
+    return c.json({ purchases: await listPurchases(token, user.purchases) });
   });
 
   app.post("/api/auth/logout", async (c) => {

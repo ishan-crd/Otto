@@ -13,7 +13,7 @@ import {
   Tag,
   type TagKind,
 } from "../../src/components/ui";
-import { CHIPS, type Chip, chipMatch, type Gig, HIRES, SELLS } from "../../src/data";
+import { CHIPS, type Chip, chipMatch, type Gig } from "../../src/data";
 import { c, font, grad } from "../../src/theme";
 
 /** A live marketplace agent mapped onto the design's Gig shape (+ serviceId). */
@@ -64,8 +64,8 @@ export default function Marketplace() {
   const source: (Gig | LiveGig)[] = live.length
     ? live.filter((g) => (market === "hiring" ? !g.sell : g.sell))
     : market === "hiring"
-      ? HIRES
-      : SELLS;
+      ? []
+      : [];
   const gigs = source
     .filter((g) => chipMatch(chip, g))
     .filter((g) => !q || `${g.title} ${g.agent} ${g.unit}`.toLowerCase().includes(q));

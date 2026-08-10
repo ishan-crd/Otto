@@ -83,14 +83,14 @@ async function submit(){
     localStorage.setItem('otto_token', r.token);
     localStorage.setItem('otto_user', JSON.stringify(r.user));
     el('msg').className='msg ok'; el('msg').textContent='✓ Welcome, '+r.user.name+' — entering…';
-    setTimeout(function(){ location.href='/prompt'; }, 400);
+    setTimeout(function(){ location.href=new URLSearchParams(location.search).get('next')||'/'; }, 400);
   }catch(e){ el('msg').className='msg'; el('msg').textContent=String(e.message||e); btn.disabled=false; }
 }
 el('submit').onclick=submit;
 el('password').addEventListener('keydown',function(e){ if(e.key==='Enter') submit(); });
 
 if(localStorage.getItem('otto_token')){
-  fetch('/api/auth/me',{headers:{Authorization:'Bearer '+localStorage.getItem('otto_token')}}).then(function(r){ if(r.ok) location.href='/prompt'; else localStorage.removeItem('otto_token'); });
+  fetch('/api/auth/me',{headers:{Authorization:'Bearer '+localStorage.getItem('otto_token')}}).then(function(r){ if(r.ok) location.href=new URLSearchParams(location.search).get('next')||'/'; else localStorage.removeItem('otto_token'); });
 }
 </script>
 </body>

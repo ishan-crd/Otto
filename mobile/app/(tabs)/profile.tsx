@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { money, otto, type Policy, type PolicyResponse } from "../../src/api";
 import { useAppState } from "../../src/components/AppState";
 import { Mono, ProgressBar, Screen } from "../../src/components/ui";
-import { DEFAULT_RULES, RULES } from "../../src/data";
+
 import { c, font, grad, tabular } from "../../src/theme";
 
 /** The three enforced autonomy gates, mapped onto policy keys. */
@@ -27,8 +27,8 @@ const POLICY_RULES: { key: keyof Policy; title: string; detail: string }[] = [
 ];
 
 export default function Profile() {
-  const { toast } = useAppState();
-  const [rules, setRules] = useState<boolean[]>(DEFAULT_RULES);
+  const { toast, user, signOut } = useAppState();
+
   const [policy, setPolicy] = useState<PolicyResponse | null>(null);
 
   const load = useCallback(async () => {
@@ -68,8 +68,6 @@ export default function Profile() {
   const used = policy?.firewall.sessionSpent.usdc ?? 11.4;
   const pct = Math.min(100, Math.round((100 * used) / Math.max(budget, 0.0001)));
 
-  const toggle = (i: number) => setRules((r) => r.map((v, idx) => (idx === i ? !v : v)));
-
   return (
     <Screen>
       {/* Agent header */}
@@ -87,9 +85,9 @@ export default function Profile() {
         </View>
         <View style={{ flex: 1 }}>
           <Text style={s.name}>Otto</Text>
-          <Text style={s.role}>Autonomous · acting for Mira</Text>
+          <Text style={s.role}>Autonomous · acting for {user?.name ?? "you"}</Text>
           <Mono color={c.accentBright} style={{ fontSize: 11, marginTop: 5 }}>
-            ★ 4.96 · 4,951 tasks
+            {user?.email ?? ""}
           </Mono>
         </View>
       </View>
@@ -125,33 +123,33 @@ export default function Profile() {
         end={{ x: 0.9, y: 1 }}
         style={s.rulesCard}
       >
-        {policy
-          ? POLICY_RULES.map((r, i) => (
-              <Pressable
-                key={r.key}
-                onPress={() => void togglePolicy(r.key)}
-                style={[s.rule, i === POLICY_RULES.length - 1 && { borderBottomWidth: 0 }]}
-              >
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={s.ruleTitle}>{r.title}</Text>
-                  <Text style={s.ruleDetail}>{r.detail}</Text>
-                </View>
-                <Toggle on={Boolean(policy.policy[r.key])} />
-              </Pressable>
-            ))
-          : RULES.map((r, i) => (
-              <Pressable
-                key={r.title}
-                onPress={() => toggle(i)}
-                style={[s.rule, i === RULES.length - 1 && { borderBottomWidth: 0 }]}
-              >
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={s.ruleTitle}>{r.title}</Text>
-                  <Text style={s.ruleDetail}>{r.detail}</Text>
-                </View>
-                <Toggle on={rules[i] ?? false} />
-              </Pressable>
-            ))}
+        {policy ? (
+          POLICY_RULES.map((r, i) => (
+            <Pressable
+              key={r.key}
+              onPress={() => void togglePolicy(r.key)}
+              style={[s.rule, i === POLICY_RULES.length - 1 && { borderBottomWidth: 0 }]}
+            >
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={s.ruleTitle}>{r.title}</Text>
+                <Text style={s.ruleDetail}>{r.detail}</Text>
+              </View>
+              <Toggle on={Boolean(policy.policy[r.key])} />
+            </Pressable>
+          ))
+        ) : (
+          <Text
+            style={{
+              color: c.faint,
+              fontSize: 12,
+              paddingVertical: 18,
+              textAlign: "center",
+              fontFamily: font.regular,
+            }}
+          >
+            Loading policy…
+          </Text>
+        )}
       </LinearGradient>
 
       <Pressable
@@ -159,6 +157,13 @@ export default function Profile() {
         style={({ pressed }) => [s.stop, pressed && { transform: [{ scale: 0.98 }] }]}
       >
         <Text style={s.stopText}>Stop Otto now</Text>
+      </Pressable>
+
+      <Pressable
+        onPress={() => void signOut()}
+        style={({ pressed }) => [s.signout, pressed && { opacity: 0.7 }]}
+      >
+        <Text style={s.signoutText}>Sign out</Text>
       </Pressable>
     </Screen>
   );
@@ -275,4 +280,15 @@ const s = StyleSheet.create({
     justifyContent: "center",
   },
   stopText: { color: "#FFC2BB", fontSize: 14, fontFamily: font.medium },
+
+  signout: {
+    height: 46,
+    marginTop: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  signoutText: { color: c.muted, fontSize: 13.5, fontFamily: font.medium },
 });

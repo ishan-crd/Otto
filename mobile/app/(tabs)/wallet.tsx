@@ -14,7 +14,7 @@ import {
 } from "../../src/api";
 import { receiptParams } from "../../src/components/sheet-nav";
 import { MoneyRow, Mono, Screen, ScreenTitle } from "../../src/components/ui";
-import { CHART, RECEIPTS, type Row } from "../../src/data";
+import type { Row } from "../../src/data";
 import { c, font, grad, tabular } from "../../src/theme";
 
 function toRow(e: LedgerEntry): Row {
@@ -65,8 +65,8 @@ export default function Wallet() {
           spend: Math.max(2, Math.round((78 * b.spentMicro) / max)),
         }));
       })()
-    : CHART;
-  const receipts = rows ?? RECEIPTS;
+    : Array.from({ length: 8 }, (_, i) => ({ wk: `B${i + 1}`, earn: 2, spend: 2 }));
+  const receipts = rows ?? [];
 
   return (
     <Screen>
@@ -177,6 +177,19 @@ export default function Wallet() {
         end={{ x: 0.9, y: 1 }}
         style={s.receipts}
       >
+        {receipts.length === 0 && (
+          <Text
+            style={{
+              color: c.faint,
+              fontSize: 12,
+              paddingVertical: 18,
+              textAlign: "center",
+              fontFamily: font.regular,
+            }}
+          >
+            No settled payments yet.
+          </Text>
+        )}
         {receipts.map((r, i) => (
           <MoneyRow
             key={`${r.tx}-${r.time}-${r.label}`}

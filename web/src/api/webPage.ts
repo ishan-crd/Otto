@@ -280,9 +280,10 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
         <div class="mono" style="font-size:16px;font-weight:500;margin-top:3px"><span id="ceilVal">$25.00</span> <span style="font-size:11px;color:rgba(242,241,246,0.38)">/ session</span></div>
         <div class="miniBar"><i id="ceilBar" style="width:0%"></i></div>
       </div>
-      <div class="userRow">
-        <div class="userAv">MK</div>
-        <div class="userText" style="line-height:1.25"><div style="font-size:12.5px;font-weight:500">Mira Kovač</div><div style="font-size:10.5px;color:rgba(242,241,246,0.34)">Principal</div></div>
+      <div class="userRow" id="userRow" title="Log out" style="cursor:pointer">
+        <div class="userAv" id="userAv">·</div>
+        <div class="userText" style="line-height:1.25;min-width:0"><div id="userName" style="font-size:12.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Signing in…</div><div id="userMail" style="font-size:10.5px;color:rgba(242,241,246,0.34);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div></div>
+        <span class="userText" style="margin-left:auto;font-size:11px;color:rgba(242,241,246,0.4)">⎋</span>
       </div>
     </div>
   </aside>
@@ -319,7 +320,7 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
           <div class="orb"></div>
           <div style="position:relative;font-size:11.5px;letter-spacing:0.1em;color:rgba(242,241,246,0.42)">AGENT WALLET</div>
           <div style="position:relative;display:flex;align-items:flex-end;gap:14px;margin-top:10px">
-            <div class="mono" id="balance" style="font-size:46px;font-weight:500;letter-spacing:-0.035em;line-height:1">$4,182.90</div>
+            <div class="mono" id="balance" style="font-size:46px;font-weight:500;letter-spacing:-0.035em;line-height:1">—</div>
             <div style="font-size:12px;color:rgba(242,241,246,0.34);padding-bottom:9px">USDC</div>
           </div>
           <div style="position:relative;display:flex;gap:10px;margin-top:22px;flex-wrap:wrap">
@@ -527,7 +528,7 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
           <div style="position:relative;display:flex;gap:28px;align-items:flex-start">
             <div style="flex:1;min-width:0">
               <div style="font-size:11.5px;letter-spacing:0.1em;color:rgba(242,241,246,0.42)">AVAILABLE TO SPEND</div>
-              <div class="mono" id="walletBal" style="font-size:42px;font-weight:500;letter-spacing:-0.035em;margin-top:10px;line-height:1">$4,182.90</div>
+              <div class="mono" id="walletBal" style="font-size:42px;font-weight:500;letter-spacing:-0.035em;margin-top:10px;line-height:1">—</div>
               <div style="display:flex;gap:22px;margin-top:22px">
                 <div><div style="font-size:10.5px;letter-spacing:0.05em;color:rgba(242,241,246,0.38)">IN ESCROW</div><div class="mono" id="wEscrow" style="font-size:17px;margin-top:4px;color:#C8C1FF">$0.00</div></div>
                 <div><div style="font-size:10.5px;letter-spacing:0.05em;color:rgba(242,241,246,0.38)">EARNED</div><div class="mono" id="wEarned" style="font-size:17px;margin-top:4px;color:#A9EFC8">$0.00</div></div>
@@ -634,6 +635,25 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
 </div>
 
 <script>
+// ── Auth gate: the dashboard is only for signed-in users (Supabase) ──────────
+var OTTO_TOKEN = localStorage.getItem('otto_token');
+if (!OTTO_TOKEN) location.replace('/login');
+fetch('/api/auth/me', { headers:{ Authorization:'Bearer '+OTTO_TOKEN } })
+  .then(function(r){ return r.ok ? r.json() : Promise.reject(); })
+  .then(function(me){
+    var u = me.user;
+    var initials = (u.name||u.email||'?').replace(/[^A-Za-z ]/g,'').split(' ').map(function(w){return w[0];}).join('').slice(0,2).toUpperCase() || 'U';
+    document.getElementById('userAv').textContent = initials;
+    document.getElementById('userName').textContent = u.name;
+    document.getElementById('userMail').textContent = u.email;
+  })
+  .catch(function(){ localStorage.removeItem('otto_token'); location.replace('/login'); });
+document.getElementById('userRow').addEventListener('click', function(){
+  fetch('/api/auth/logout',{method:'POST',headers:{Authorization:'Bearer '+OTTO_TOKEN}}).catch(function(){});
+  localStorage.removeItem('otto_token'); localStorage.removeItem('otto_user');
+  location.replace('/login');
+});
+
 var state = { page:'market', tab:'hiring', tick:0, filter:'all', rules:[true,true,false,true,true],
   agents:[], task:null, taskTimer:null, feedLive:false, counts:null, policy:null, liveInfo:null, ledgerRows:[],
   budget:2, walletConnected:false, liveStatus:null, popOpen:false, statusTimer:null, sidebarMini:false };
@@ -648,13 +668,13 @@ var ICONS = {
   receipts:'<svg '+SVG+'><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6"/><path d="M9 12h5"/></svg>',
   rules:'<svg '+SVG+'><path d="M12 3l7 3v5c0 4.6-3.1 7.8-7 9-3.9-1.2-7-4.4-7-9V6z"/><path d="M9.5 12l1.8 1.8L15 10"/></svg>'
 };
-var NAV = [ {id:'market',label:'Marketplace',count:'18'}, {id:'economy',label:'Agent Economy',count:''}, {id:'treasury',label:'Treasury',count:''}, {id:'task',label:'Active task',count:'1'}, {id:'wallet',label:'Wallet',count:''}, {id:'receipts',label:'Receipts',count:'204'}, {id:'rules',label:'Rules & limits',count:''} ];
+var NAV = [ {id:'market',label:'Marketplace',count:''}, {id:'economy',label:'Agent Economy',count:''}, {id:'treasury',label:'Treasury',count:''}, {id:'task',label:'Active task',count:''}, {id:'wallet',label:'Wallet',count:''}, {id:'receipts',label:'Receipts',count:''}, {id:'rules',label:'Rules & limits',count:''} ];
 var TITLES = { market:'Marketplace', economy:'Agent Economy', treasury:'Treasury', task:'Active task', wallet:'Wallet', receipts:'Receipts', rules:'Rules & limits' };
 var SUBS = {
-  market:'Agents hiring agents — Otto is taking 4 gigs and selling 6 skills.',
+  market:'Agents hiring agents — a live x402 marketplace.',
   economy:'Give Otto a goal — watch it break the work into roles and hire specialist agents, live.',
   treasury:'Otto\\u2019s autonomous business — it earns, reinvests, and compounds its own treasury.',
-  task:'Otto is executing a trip booking and settling each sub-agent per task.',
+  task:'Otto\u2019s current job — every sub-agent paid per task over x402.',
   wallet:'Balance, rails and the reserve Otto draws from.',
   receipts:'Every settled micropayment, signed and auditable on-chain.',
   rules:'The boundaries Otto operates inside. Change them any time.'
@@ -758,7 +778,7 @@ function renderMktChart(real){
     var max = 1;
     for (var i=0;i<real.length;i++) max = Math.max(max, real[i].earnedMicro, real[i].spentMicro);
     data = real.map(function(b){ return [Math.round(96*b.earnedMicro/max), Math.round(96*b.spentMicro/max)]; });
-  } else data = MKT_CHART;
+  } else data = [[2,2],[2,2],[2,2],[2,2],[2,2],[2,2],[2,2],[2,2]];
   document.getElementById('mktChart').innerHTML = data.map(function(c,i){
     var box = i===data.length-2 ? '<div style="position:absolute;inset:-6px -7px;border-radius:11px;border:1px solid rgba(255,255,255,0.09);background:rgba(255,255,255,0.04)"></div>' : '';
     return '<div class="cbar" style="position:relative">'+box+'<i class="e" style="height:'+Math.max(c[0],2)+'px;position:relative"></i><i class="s" style="height:'+Math.max(c[1],2)+'px;position:relative"></i></div>';
@@ -776,10 +796,12 @@ function gigsSource(){
       });
     if (live.length) return live;
   }
-  return state.tab==='hiring' ? HIRES : SELLS;
+  return [];
 }
 function renderGigs(){
-  document.getElementById('gigs').innerHTML = gigsSource().map(function(g){
+  var src = gigsSource();
+  if (!src.length){ document.getElementById('gigs').innerHTML = '<div style="grid-column:span 2;padding:22px 0;text-align:center;font-size:12px;color:rgba(242,241,246,0.35)">Loading live agents…</div>'; return; }
+  document.getElementById('gigs').innerHTML = src.map(function(g){
     var av = g.sell
       ? 'width:38px;height:38px;flex:none;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:600;color:#1A1826;background:linear-gradient(150deg,#E7E3FF,#8F87C9);border:1px solid rgba(255,255,255,0.07)'
       : 'width:38px;height:38px;flex:none;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:600;color:#C9C3FF;background:linear-gradient(150deg,#33304A,#16161F);border:1px solid rgba(255,255,255,0.07)';
@@ -804,8 +826,7 @@ function renderFeed(){
     document.getElementById('feed').innerHTML = FEED.slice(0,7).map(feedRow).join('');
     return;
   }
-  var o = state.tick % FEED.length;
-  document.getElementById('feed').innerHTML = FEED.slice(o).concat(FEED.slice(0,o)).slice(0,7).map(feedRow).join('');
+  document.getElementById('feed').innerHTML = '<div style="padding:22px 0;text-align:center;font-size:12px;color:rgba(242,241,246,0.35)">No payments yet — run a task or hire an agent.</div>';
 }
 function renderSteps(data){
   var list = data || STEPS;
@@ -825,11 +846,11 @@ function renderSteps(data){
       +'<div style="text-align:right;flex:none"><div class="mono" style="font-size:13px;color:'+costCol+'">'+s.cost+'</div><div class="mono" style="font-size:10px;color:rgba(242,241,246,0.26);margin-top:4px">'+s.tx+'</div></div></div>';
   }).join('');
 }
-function renderTaskReceipts(data){ document.getElementById('taskReceipts').innerHTML = (data || TASK_RECEIPTS).map(function(r){
+function renderTaskReceipts(data){ document.getElementById('taskReceipts').innerHTML = (data || []).map(function(r){
   return '<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.045)"><div style="'+iconStyle(r.dir)+'">'+(r.dir==='in'?'↑':'↓')+'</div><div style="flex:1;min-width:0"><div style="font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(r.label)+'</div><div class="mono" style="font-size:10px;color:rgba(242,241,246,0.28);margin-top:3px">'+r.tx+' · '+r.time+'</div></div><div style="'+amtStyle(r.dir)+'">'+r.amount+'</div></div>';
 }).join(''); }
 function railData(){
-  if (!state.liveInfo) return RAILS;
+  if (!state.liveInfo) return [];
   var li = state.liveInfo;
   var recv = li.receiver ? (li.receiver.slice(0,6)+'…'+li.receiver.slice(-6)) : 'not configured';
   return [
@@ -846,8 +867,9 @@ function renderRails(){ document.getElementById('rails').innerHTML = railData().
   return '<div style="display:flex;align-items:center;gap:13px;border-radius:19px;border:1px solid rgba(255,255,255,0.065);background:rgba(255,255,255,0.028);padding:15px 16px"><div style="'+ic+'">'+r.glyph+'</div><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:500">'+esc(r.name)+'</div><div class="mono" style="font-size:10.5px;color:rgba(242,241,246,0.32);margin-top:4px">'+esc(r.meta)+'</div></div><span style="'+pill+'">'+r.stateLabel+'</span></div>';
 }).join(''); }
 function renderLedger(){
-  var src = (state.ledgerRows && state.ledgerRows.length) ? state.ledgerRows : LEDGER;
+  var src = (state.ledgerRows && state.ledgerRows.length) ? state.ledgerRows : [];
   var rows = src.filter(function(l){ return state.filter==='all' || l.dir===state.filter; });
+  if (!rows.length){ document.getElementById('ledger').innerHTML = '<div style="padding:26px 0;text-align:center;font-size:12px;color:rgba(242,241,246,0.35)">No settled payments yet.</div>'; return; }
   document.getElementById('ledger').innerHTML = rows.map(function(l){
     return '<div style="display:grid;grid-template-columns:1.6fr 1fr 1fr 0.8fr;gap:14px;align-items:center;padding:13px 4px;border-bottom:1px solid rgba(255,255,255,0.045)">'
       +'<div style="display:flex;align-items:center;gap:11px;min-width:0"><div style="'+iconStyle(l.dir)+'">'+(l.dir==='in'?'↑':'↓')+'</div><div style="min-width:0"><div style="font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(l.who)+'</div><div style="font-size:10.5px;color:rgba(242,241,246,0.3);margin-top:3px">'+l.time+'</div></div></div>'
@@ -890,6 +912,19 @@ function renderRules(){
   }).join('');
 }
 
+function renderTaskIdle(){
+  document.getElementById('taskRunLab').textContent='IDLE \u00b7 NO ACTIVE TASK';
+  document.getElementById('taskTitle').textContent='Give Otto a goal';
+  document.getElementById('taskSub').textContent='Start one from the Marketplace hero \u2014 Otto plans it and pays specialist agents per task.';
+  document.getElementById('taskSpent').textContent='$0.00';
+  document.getElementById('taskBudgetLab').textContent='';
+  document.getElementById('taskProg').style.width='0%';
+  document.getElementById('taskFoot').textContent='';
+  document.getElementById('steps').innerHTML='<div style="padding:24px 0;text-align:center;font-size:12px;color:rgba(242,241,246,0.35)">No steps yet.</div>';
+  document.getElementById('itinLabel').textContent='OUTCOME';
+  document.getElementById('itinBody').innerHTML='<div style="position:relative;margin-top:14px;font-size:12px;color:rgba(242,241,246,0.4)">The result of Otto\u2019s current task will appear here.</div>';
+  document.getElementById('taskReceipts').innerHTML='<div style="padding:16px 0;text-align:center;font-size:12px;color:rgba(242,241,246,0.35)">No receipts yet.</div>';
+}
 function setPage(p){
   state.page=p;
   renderNav();
@@ -1777,7 +1812,7 @@ document.getElementById('runBtn').addEventListener('click', runTask);
 document.getElementById('goalInput').addEventListener('keydown', function(e){ if(e.key==='Enter') runTask(); });
 document.getElementById('earnBtn').addEventListener('click', simulateSale);
 
-renderNav(); renderMktChart(); renderGigs(); renderFeed(); renderSteps(); renderTaskReceipts(); renderRails(); renderLedger(); renderRules();
+renderNav(); renderMktChart(); renderGigs(); renderFeed(); renderTaskIdle(); renderRails(); renderLedger(); renderRules();
 try { state.walletConnected = localStorage.getItem('ottoWalletConnected')==='1'; } catch(_){}
 try { if (localStorage.getItem('ottoSidebarMini')==='1') setSidebar(true); } catch(_){}
 setBudget(2, true); renderWallet();

@@ -163,15 +163,24 @@ export interface OpenRouterModel {
 /** Testnet account explorer (AlgoKit lora) — append an address. */
 export const ACCOUNT_EXPLORER = "https://lora.algokit.io/testnet/account/";
 
+/** Supabase session token — set by AppState after login; sent on every call. */
+let authToken: string | null = null;
+export const setAuthToken = (t: string | null) => {
+  authToken = t;
+};
+
+const authHeaders = (): Record<string, string> =>
+  authToken ? { Authorization: `Bearer ${authToken}` } : {};
+
 async function jget<T>(path: string): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`);
+  const res = await fetch(`${API_BASE}${path}`, { headers: authHeaders() });
   if (!res.ok) throw new Error(`${path} → ${res.status}`);
   return res.json() as Promise<T>;
 }
 async function jsend<T>(method: "POST" | "PUT", path: string, body?: unknown): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     method,
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", ...authHeaders() },
     body: body ? JSON.stringify(body) : undefined,
   });
   const data = (await res.json().catch(() => ({}))) as T & { detail?: string; error?: string };
@@ -179,7 +188,27 @@ async function jsend<T>(method: "POST" | "PUT", path: string, body?: unknown): P
   return data;
 }
 
+/** Signed-in user (Supabase-backed, from the web backend). */
+export interface AuthUser {
+  id: string;
+  email: string;
+  name: string;
+}
+export interface AuthResult {
+  ok: boolean;
+  token?: string;
+  user?: AuthUser;
+  confirmEmail?: boolean;
+}
+
 export const otto = {
+  login: (email: string, password: string) =>
+    jsend<AuthResult>("POST", "/api/auth/login", { email, password }),
+  signup: (name: string, email: string, password: string) =>
+    jsend<AuthResult>("POST", "/api/auth/signup", { name, email, password }),
+  me: () => jget<{ user: AuthUser }>("/api/auth/me"),
+  logout: () => jsend<{ ok: boolean }>("POST", "/api/auth/logout"),
+
   wallet: () => jget<WalletSnapshot>("/api/wallet"),
   ledger: () => jget<{ entries: LedgerEntry[] }>("/api/ledger"),
   stats: () => jget<Stats>("/api/stats"),
