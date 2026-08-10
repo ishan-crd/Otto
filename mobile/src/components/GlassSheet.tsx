@@ -17,8 +17,8 @@ import { c, font } from "../theme";
 export function SheetScreen({ children }: { children: ReactNode }) {
   const insets = useSafeAreaInsets();
   const background = Platform.OS === "ios" ? "transparent" : c.surface;
-  // Keep a small gap above the home indicator but sit ~30px tighter overall.
-  const paddingBottom = Math.max(12, insets.bottom - 8);
+  // Sit tight to the bottom (keeping a minimal gap above the home indicator).
+  const paddingBottom = Math.max(6, insets.bottom - 28);
   return (
     <View style={[styles.root, { backgroundColor: background, paddingBottom }]}>{children}</View>
   );
