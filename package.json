@@ -17,7 +17,8 @@
     "gen-wallet": "pnpm -C web gen-wallet",
     "check-wallet": "pnpm -C web check-wallet",
     "demo": "pnpm -C web demo",
-    "tunnel": "cloudflared tunnel --edge-ip-version 4 --url http://localhost:8787"
+    "tunnel": "cloudflared tunnel --edge-ip-version 4 --url http://localhost:8787",
+    "free": "lsof -ti:8787 | xargs kill -9 2>/dev/null; echo port 8787 freed"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.7",
