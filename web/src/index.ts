@@ -2,6 +2,7 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { dashboard } from "./api/dashboard";
+import { mountModels } from "./api/models";
 import { PAY_PAGE_HTML } from "./api/payPage";
 import { DASHBOARD_HTML } from "./api/webPage";
 import { config, fmtUsdc } from "./config";
@@ -20,6 +21,7 @@ app.get("/", (c) => c.html(DASHBOARD_HTML));
 // The LIVE x402 wallet flow — connect Pera Wallet, pay real testnet USDC.
 app.get("/pay", (c) => c.html(PAY_PAGE_HTML));
 mountLive(app);
+mountModels(app);
 
 // Mount every registry service as a paid x402 endpoint.
 for (const service of SERVICES) {

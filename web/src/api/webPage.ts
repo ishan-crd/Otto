@@ -210,6 +210,8 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
   .econCand .cn{display:flex;align-items:center;gap:9px}
   .econCandAv{width:28px;height:28px;flex:none;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:600;color:#C9C3FF;background:linear-gradient(150deg,#33304A,#16161F);border:1px solid rgba(255,255,255,0.07)}
   .econCandName{font-size:12.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .econModelId{font-family:var(--mono);font-size:9.5px;color:rgba(242,241,246,0.34);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .econOrTag{display:inline-flex;align-items:center;gap:5px;font-size:10px;letter-spacing:0.04em;color:#8FE3B4;background:rgba(143,227,180,0.08);border:1px solid rgba(143,227,180,0.2);border-radius:7px;padding:3px 8px;margin-left:8px}
   .econCandMeta{display:flex;align-items:center;justify-content:space-between;margin-top:10px}
   .econStar{font-size:11px;color:rgba(242,241,246,0.55);font-family:var(--mono)}
   .econPrice{font-size:12.5px;font-family:var(--mono);color:#F2F1F6}
@@ -386,6 +388,7 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
             <button class="econChip" data-ex="Launch a marketing campaign for our product">Launch a marketing campaign</button>
             <button class="econChip" data-ex="Write a research report on quantum computing">Write a research report</button>
           </div>
+          <div id="econModelBadge" class="econOrTag" style="display:none;margin-top:20px"></div>
         </div>
       </div>
 
@@ -1279,7 +1282,15 @@ function setSidebar(mini){
 document.getElementById('sideToggle').addEventListener('click', function(){ setSidebar(!state.sidebarMini); });
 
 // ── Agent Economy: decompose a goal → hire specialist agents live ────────────
-var ECON = { running:false, goal:'', budget:0, spent:0, subs:[], idx:0, timers:[] };
+var ECON = { running:false, goal:'', budget:0, spent:0, subs:[], idx:0, timers:[], useModels:false };
+var ECON_MODELS = [];
+function econModelPrice(m){ var blended=(m.perMIn+m.perMOut)/2; return Math.round((0.15+Math.min(1.55, blended*0.22))*100)/100; }
+function econModelRating(m){ var blended=(m.perMIn+m.perMOut)/2; return Math.round((4.6+Math.min(0.39, blended*0.05))*100)/100; }
+function econModelCands(){
+  return econShuffle(ECON_MODELS).slice(0,3).map(function(m){
+    return { name:m.name, price:econModelPrice(m), rating:econModelRating(m), over:false, modelId:m.id, rate:m.perMIn };
+  });
+}
 var ECON_POOL = {
   design:['Pixel Guild','Aurora UX','Nomad Design','Glassmith','Formcraft'],
   frontend:['Stratus FE','ReactWorks','Glasslate','Motionsmith','Viewport'],
@@ -1425,6 +1436,7 @@ function econRound(x){ return Math.round(x*100)/100; }
 function econTx(){ var h='0123456789abcdef',a='',b=''; for(var i=0;i<4;i++){ a+=h[Math.floor(Math.random()*16)]; b+=h[Math.floor(Math.random()*16)]; } return '0x'+a+'…'+b; }
 function econInitials(n){ var p=n.split(' '); return (p[0].charAt(0)+(p[1]?p[1].charAt(0):(p[0].charAt(1)||''))).toUpperCase(); }
 function econCandidates(key){
+  if (ECON_MODELS.length) return econModelCands();
   var pool=ECON_POOL[key]||['Otto Partner','Agent Node','Specialist Co'];
   var band=ECON_BAND[key]||[0.4,1.0];
   var names=econShuffle(pool).slice(0,3);
@@ -1457,14 +1469,16 @@ function econCandHtml(s,j){
   else if (s.phase==='blocked' && cnd.over) cls += ' dim';
   var badge = ((s.phase==='hiring'||s.phase==='delivering'||s.phase==='done') && j===s.pickIdx) ? '<span class="econHired">HIRED</span>' : '';
   var over = cnd.over ? '<div class="econOver">over budget</div>' : '';
+  var modelLine = cnd.modelId ? '<div class="econModelId">'+esc(cnd.modelId)+' · $'+cnd.rate.toFixed(2)+'/M</div>' : '';
+  var av = cnd.modelId ? '<div class="econCandAv" style="color:#8FE3B4;background:linear-gradient(150deg,#1C2A24,#141B18)">OR</div>' : '<div class="econCandAv">'+econInitials(cnd.name)+'</div>';
   return '<div class="'+cls+'" style="animation-delay:'+(j*0.08)+'s">'
-    +'<div class="cn"><div class="econCandAv">'+econInitials(cnd.name)+'</div><div style="min-width:0;flex:1"><div class="econCandName">'+esc(cnd.name)+'</div></div>'+badge+'</div>'
+    +'<div class="cn">'+av+'<div style="min-width:0;flex:1"><div class="econCandName">'+esc(cnd.name)+'</div>'+modelLine+'</div>'+badge+'</div>'
     +'<div class="econCandMeta"><span class="econStar">★ '+cnd.rating.toFixed(2)+'</span><span class="econPrice">'+usd(cnd.price)+'</span></div>'+over+'</div>';
 }
 function econStageHtml(s){
   if (s.phase==='queued') return '<div class="econSourceText" style="color:rgba(242,241,246,0.3)">Queued — waiting for the previous hire…</div>';
   if (s.phase==='blocked' && !s.trigger) return '<div class="econBlock soft">Skipped — budget already spent.</div>';
-  if (s.phase==='sourcing') return '<div class="econSourcing"><span class="econDots"><i></i><i></i><i></i></span><span class="econSourceText">Otto is sourcing specialist agents…</span></div>'
+  if (s.phase==='sourcing') return '<div class="econSourcing"><span class="econDots"><i></i><i></i><i></i></span><span class="econSourceText">'+(ECON.useModels?'Otto is going through live OpenRouter models…':'Otto is sourcing specialist agents…')+'</span></div>'
     +'<div class="econSkelRow"><div class="econSkel"></div><div class="econSkel"></div><div class="econSkel"></div></div>';
   var out='<div class="econCands">'; for(var j=0;j<s.cands.length;j++) out+=econCandHtml(s,j); out+='</div>';
   if (s.phase==='blocked') return out+'<div class="econBlock">🛑 <b>Spend firewall</b> — '+esc(ECON.blocked||'budget exhausted')+'</div>';
@@ -1479,8 +1493,11 @@ function econCardInner(i){
   else if (s.phase==='blocked'){ ncls='econNodeBlock'; node='!'; }
   else if (s.phase==='queued'){ ncls='econNodeWait'; node=String(i+1); }
   else { ncls='econNodeRun'; node=String(i+1); }
+  var pick = s.pickIdx>=0 ? s.cands[s.pickIdx] : null;
+  var usingBadge = (pick && pick.modelId && (s.phase==='hiring'||s.phase==='delivering'||s.phase==='done'))
+    ? '<span class="econOrTag">⚡ using '+esc(pick.modelId)+'</span>' : '';
   return '<div class="econCardTop"><div class="econNode '+ncls+'">'+node+'</div>'
-    +'<div style="flex:1;min-width:0"><div style="display:flex;align-items:center;gap:9px"><span class="econTitle">'+esc(s.title)+'</span><span class="econRole">'+s.key.toUpperCase()+'</span></div>'
+    +'<div style="flex:1;min-width:0"><div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap"><span class="econTitle">'+esc(s.title)+'</span><span class="econRole">'+s.key.toUpperCase()+'</span>'+usingBadge+'</div>'
     +'<div class="econDetail">'+esc(s.detail)+'</div></div></div>'
     +'<div class="econStage">'+econStageHtml(s)+'</div>';
 }
@@ -1493,9 +1510,9 @@ function econUpdateCard(i){ var el=document.getElementById('econCard'+i); if(el)
 function econRunSub(i){
   if (i>=ECON.subs.length) return econFinish();
   ECON.idx=i; var s=ECON.subs[i];
-  s.phase='sourcing'; econUpdateCard(i); econOtto('Sourcing specialist agents for “'+s.title+'”…','work');
+  s.phase='sourcing'; econUpdateCard(i); econOtto((ECON.useModels?'Going through OpenRouter models for “':'Sourcing specialist agents for “')+s.title+'”…','work');
   econTimer(function(){
-    s.phase='candidates'; econUpdateCard(i); econOtto('Comparing '+s.cands.length+' bids for “'+s.title+'” — rating vs price…','work');
+    s.phase='candidates'; econUpdateCard(i); econOtto('Comparing '+s.cands.length+(ECON.useModels?' OpenRouter models for “':' bids for “')+s.title+'” — quality vs price…','work');
     econTimer(function(){
       if (s.blocked){
         s.phase='blocked'; econUpdateCard(i);
@@ -1503,12 +1520,13 @@ function econRunSub(i){
         econOtto('🛑 Spend firewall — '+ECON.blocked,'pay');
         return econTimer(econFinish, 750);
       }
-      s.phase='hiring'; econUpdateCard(i); econOtto('Hiring '+s.cands[s.pickIdx].name+' · escrow '+usd(s.price)+' over x402','pay');
+      var pk=s.cands[s.pickIdx];
+      s.phase='hiring'; econUpdateCard(i); econOtto((ECON.useModels?'Otto is using ':'Hiring ')+pk.name+(pk.modelId?' ('+pk.modelId+')':'')+' · paying '+usd(s.price)+' over x402','pay');
       econTimer(function(){
-        s.phase='delivering'; econUpdateCard(i); econOtto(s.cands[s.pickIdx].name+' is delivering the work…','work');
+        s.phase='delivering'; econUpdateCard(i); econOtto(pk.name+(ECON.useModels?' is running the job…':' is delivering the work…'),'work');
         econTimer(function(){
           s.phase='done'; ECON.spent+=s.price; econUpdateCard(i); econMeter();
-          econOtto('Reviewed '+s.cands[s.pickIdx].name+' · ★'+s.cands[s.pickIdx].rating.toFixed(2)+' — work accepted','done');
+          econOtto((ECON.useModels?'':'Reviewed ')+pk.name+' · ★'+pk.rating.toFixed(2)+(ECON.useModels?' returned the work — accepted':' — work accepted'),'done');
           econTimer(function(){ econRunSub(i+1); }, 680);
         }, 1350);
       }, 1150);
@@ -1548,7 +1566,7 @@ function econStart(goal){
   goal=(goal||'').trim(); if(!goal) return;
   econStop();
   var plan=econDecompose(goal), revs=econShuffle(ECON_REVIEWS);
-  ECON.goal=goal; ECON.subs=[]; ECON.spent=0; ECON.idx=0; ECON.running=true; ECON.blocked=null;
+  ECON.goal=goal; ECON.subs=[]; ECON.spent=0; ECON.idx=0; ECON.running=true; ECON.blocked=null; ECON.useModels=ECON_MODELS.length>0;
   for (var i=0;i<plan.length;i++){
     ECON.subs.push({ key:plan[i].key, title:plan[i].title, detail:plan[i].detail, cands:econCandidates(plan[i].key), pickIdx:-1, price:0, tx:econTx(), review:revs[i % revs.length], phase:'queued', blocked:false, trigger:false });
   }
@@ -1598,6 +1616,10 @@ function econInit(){
   document.getElementById('econRestart').addEventListener('click', econReset);
   var chips=document.querySelectorAll('.econChip');
   for (var i=0;i<chips.length;i++) chips[i].addEventListener('click', function(){ var v=this.getAttribute('data-ex'); document.getElementById('econInput').value=v; econStart(v); });
+  // Pull the live OpenRouter catalog so Otto hires real models per role.
+  fetch('/api/models').then(function(r){return r.json();}).then(function(m){
+    if (m && m.models && m.models.length){ ECON_MODELS = m.models; var b=document.getElementById('econModelBadge'); if(b){ b.style.display='inline-flex'; b.innerHTML='⚡ Powered by '+m.models.length+' live OpenRouter models'; } }
+  }).catch(function(){});
 }
 econInit();
 
