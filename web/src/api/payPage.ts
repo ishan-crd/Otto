@@ -1,14 +1,19 @@
 /**
  * The LIVE x402 wallet flow, served at GET /pay.
  *
- * A user connects their Pera Wallet, and paying for an Otto service triggers a
+ * A user connects an Algorand wallet, and paying for an Otto service triggers a
  * REAL USDC-ASA transfer on Algorand TestNet — their wallet signs client-side,
  * the server verifies + submits, and the page shows the real tx id + explorer
  * link. This is the end-to-end, real-money (testnet) proof of the x402 flow.
  *
- * Zero-build: algosdk + @perawallet/connect load from ESM CDN. Browser JS uses
- * string concatenation (no template literals) so it can live inside this TS
- * template literal safely.
+ * Wallets: Lute (browser-native, no phone — best for a laptop demo) and Pera
+ * (mobile via WalletConnect). Both go through one `signB64(txn)` abstraction so
+ * the payment flow is wallet-agnostic. (Trust/MetaMask can't be used — they're
+ * Ethereum wallets and don't speak Algorand or hold testnet USDC.)
+ *
+ * Zero-build: algosdk + wallet connectors load from ESM CDN. Browser JS uses
+ * string concatenation (no template literals) so it lives safely inside this TS
+ * template literal.
  */
 export const PAY_PAGE_HTML = /* html */ `<!DOCTYPE html>
 <html lang="en">
@@ -39,7 +44,7 @@ export const PAY_PAGE_HTML = /* html */ `<!DOCTYPE html>
   .btn{border:none;cursor:pointer;font-family:inherit;border-radius:14px;font-size:14px;font-weight:600}
   .pri{background:linear-gradient(160deg,#CFC9FF,#9990E8);color:#14121F;height:46px;padding:0 22px;box-shadow:0 12px 28px -14px rgba(160,150,240,0.9)}
   .pri:disabled{opacity:.4;cursor:not-allowed;box-shadow:none}
-  .ghost{background:rgba(255,255,255,0.05);color:#F2F1F6;border:1px solid rgba(255,255,255,0.1);height:40px;padding:0 16px;font-weight:500}
+  .ghost{background:rgba(255,255,255,0.05);color:#F2F1F6;border:1px solid rgba(255,255,255,0.1);height:46px;padding:0 18px;font-weight:500}
   .row{display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid rgba(255,255,255,0.05)}
   .row:last-child{border-bottom:none}
   .pill{font-size:10px;letter-spacing:0.05em;padding:3px 8px;border-radius:8px}
@@ -81,10 +86,7 @@ export const PAY_PAGE_HTML = /* html */ `<!DOCTYPE html>
 
   <div class="card" id="walletCard">
     <div class="kick">YOUR WALLET</div>
-    <div id="walletBody" style="margin-top:12px">
-      <div class="note">Connect an Algorand wallet (Pera) to pay for Otto's agent services with real testnet USDC.</div>
-      <button class="btn pri" id="connectBtn" style="margin-top:16px">Connect Pera Wallet</button>
-    </div>
+    <div id="walletBody" style="margin-top:12px"></div>
   </div>
 
   <div class="card">
@@ -104,7 +106,7 @@ export const PAY_PAGE_HTML = /* html */ `<!DOCTYPE html>
     <div class="kick">HOW IT WORKS</div>
     <div class="note" style="margin-top:10px">
       1. Request a service → server returns <b>402 Payment Required</b> with a USDC price.<br/>
-      2. Your Pera wallet <b>signs</b> a USDC-ASA transfer to Otto's account.<br/>
+      2. Your wallet <b>signs</b> a USDC-ASA transfer to Otto's account.<br/>
       3. Server <b>verifies + submits</b> it to Algorand → real tx receipt → the API responds.<br/>
       No subscriptions, no API keys — pay-per-call, settled in USDC on Algorand.
     </div>
@@ -112,46 +114,76 @@ export const PAY_PAGE_HTML = /* html */ `<!DOCTYPE html>
 </div>
 
 <script type="module">
-var algosdk, PeraWalletConnect;
-try {
-  algosdk = (await import('https://esm.sh/algosdk@3.2.0')).default;
-  var pera = await import('https://esm.sh/@perawallet/connect@1');
-  PeraWalletConnect = pera.PeraWalletConnect;
-} catch (e) {
-  document.getElementById('walletBody').innerHTML = '<div class="note" style="color:#FFB3AC">Could not load wallet libraries (network?). Refresh to retry. ' + String(e) + '</div>';
-}
+var TESTNET_GENESIS = 'testnet-v1.0';
+var algosdk;
+try { algosdk = (await import('https://esm.sh/algosdk@3.2.0')).default; }
+catch (e) { document.getElementById('walletBody').innerHTML = '<div class="note" style="color:#FFB3AC">Could not load Algorand library (network?). Refresh to retry.</div>'; }
 
-var S = { info:null, services:[], wallet:null, address:null, algod:null };
+var S = { info:null, services:[], wallet:null, address:null, balAlgo:0, balUsdc:0, optedIn:false };
 
 function el(id){ return document.getElementById(id); }
 function u8ToB64(u8){ var s=''; for (var i=0;i<u8.length;i++) s+=String.fromCharCode(u8[i]); return btoa(s); }
 function decodeResp(h){ try { return JSON.parse(atob(h)); } catch(e){ return null; } }
-function money(micro){ return '$'+(micro/1e6).toFixed(3); }
+function short(a){ return a.slice(0,6)+'…'+a.slice(-6); }
+
+// One wallet-agnostic interface: connect() + signB64(txn). Connectors load lazily
+// so a flaky CDN for one wallet never blocks the other.
+async function makeWallet(kind){
+  if (kind === 'lute'){
+    var LuteConnect = (await import('https://esm.sh/lute-connect@1.4.1')).default;
+    var lute = new LuteConnect('Otto');
+    return {
+      kind:'lute', label:'Lute',
+      connect: function(){ return lute.connect(TESTNET_GENESIS); },
+      disconnect: function(){},
+      signB64: async function(txn){
+        var b64 = u8ToB64(algosdk.encodeUnsignedTransaction(txn));
+        var res = await lute.signTxns([{ txn: b64 }]);
+        var s = res[0];
+        return (typeof s === 'string') ? s : u8ToB64(s);
+      }
+    };
+  }
+  var mod = await import('https://esm.sh/@perawallet/connect@1');
+  var pera = new mod.PeraWalletConnect({ chainId: S.info.chainId });
+  return {
+    kind:'pera', label:'Pera',
+    connect: function(){ return pera.connect(); },
+    disconnect: function(){ try { pera.disconnect(); } catch(e){} },
+    signB64: async function(txn){
+      var s = await pera.signTransaction([[{ txn: txn, signers:[S.address] }]]);
+      return u8ToB64(s[0]);
+    }
+  };
+}
 
 async function boot(){
   S.info = await fetch('/api/live/info').then(function(r){return r.json();});
   S.services = (await fetch('/api/live/services').then(function(r){return r.json();})).services;
   if (S.info.algodServer && algosdk) S.algod = new algosdk.Algodv2('', S.info.algodServer, S.info.algodPort);
-  renderServices();
+  renderWallet(); renderServices();
   if (!S.info.enabled){
     el('configCard').style.display='block';
-    el('configMsg').innerHTML = 'The live flow needs an Algorand receiver. Set <span class="mono">RAIL=algorand</span> and <span class="mono">RECEIVER_ADDRESS</span> (an opted-in TestNet account) in <span class="mono">web/.env</span>, then restart the server. The dashboard still works without this.';
-    el('connectBtn').disabled = true;
-  }
-  if (PeraWalletConnect){
-    S.wallet = new PeraWalletConnect({ chainId: S.info.chainId });
-    try { var acc = await S.wallet.reconnectSession(); if (acc && acc.length){ S.address = acc[0]; await refreshAccount(); } } catch(e){}
-    S.wallet.connector && S.wallet.connector.on && S.wallet.connector.on('disconnect', onDisconnect);
+    el('configMsg').innerHTML = 'The live flow needs an Algorand receiver. Set <span class="mono">PAYER_MNEMONIC</span> (run <span class="mono">pnpm opt-in</span>) or <span class="mono">RECEIVER_ADDRESS</span> in <span class="mono">web/.env</span>, then restart. The dashboard still works without this.';
   }
 }
 
-async function connect(){
-  if (!S.wallet) return;
-  try { var acc = await S.wallet.connect(); S.address = acc[0]; await refreshAccount(); }
-  catch(e){ if (String(e).indexOf('Connect modal is closed')<0) el('walletBody').innerHTML = '<div class="note" style="color:#FFB3AC">Connect failed: '+String(e)+'</div><button class="btn pri" id="connectBtn2" style="margin-top:14px">Try again</button>', el('connectBtn2').onclick=connect; }
+async function connect(kind){
+  if (!algosdk || !S.info || !S.info.enabled) return;
+  el('walletBody').innerHTML = '<div class="note">Opening ' + (kind==='lute'?'Lute':'Pera') + '…</div>';
+  try {
+    S.wallet = await makeWallet(kind);
+    var acc = await S.wallet.connect();
+    S.address = acc[0];
+    await refreshAccount();
+  } catch(e){
+    var msg = String(e);
+    if (msg.indexOf('closed')>=0 || msg.indexOf('cancel')>=0){ S.wallet=null; renderWallet(); return; }
+    el('walletBody').innerHTML = '<div class="note" style="color:#FFB3AC">Connect failed: '+msg+'</div>';
+    setTimeout(renderWallet, 2200);
+  }
 }
-function onDisconnect(){ S.address=null; renderWallet(); renderServices(); }
-function disconnect(){ try{ S.wallet.disconnect(); }catch(e){} onDisconnect(); }
+function disconnect(){ if (S.wallet) S.wallet.disconnect(); S.wallet=null; S.address=null; renderWallet(); renderServices(); }
 
 async function refreshAccount(){
   S.balAlgo=0; S.balUsdc=0; S.optedIn=false;
@@ -164,13 +196,20 @@ async function refreshAccount(){
   renderWallet(); renderServices();
 }
 
-function short(a){ return a.slice(0,6)+'…'+a.slice(-6); }
 function renderWallet(){
-  if (!S.address){ el('walletBody').innerHTML = '<div class="note">Connect an Algorand wallet (Pera) to pay with real testnet USDC.</div><button class="btn pri" id="connectBtn" style="margin-top:16px">Connect Pera Wallet</button>'; el('connectBtn').onclick=connect; return; }
+  if (!S.address){
+    el('walletBody').innerHTML =
+      '<div class="note">Connect an Algorand wallet to pay with real testnet USDC. <b>Lute</b> works right in this browser (no phone); <b>Pera</b> connects your phone.</div>'
+      +'<div style="display:flex;gap:10px;margin-top:16px"><button class="btn pri" id="cLute">Connect Lute</button><button class="btn ghost" id="cPera">Connect Pera</button></div>';
+    var l=el('cLute'), p=el('cPera');
+    if (!S.info || !S.info.enabled){ l.disabled=true; p.disabled=true; }
+    l.onclick=function(){ connect('lute'); }; p.onclick=function(){ connect('pera'); };
+    return;
+  }
   var optPill = S.optedIn ? '<span class="pill pOk">OPTED IN</span>' : '<span class="pill pWarn">NOT OPTED IN</span>';
-  var optBtn = S.optedIn ? '' : '<button class="btn ghost" id="optBtn" style="margin-top:14px">Opt in to USDC</button>';
+  var optBtn = S.optedIn ? '' : '<button class="btn ghost" id="optBtn" style="height:40px;margin-top:14px">Opt in to USDC</button>';
   el('walletBody').innerHTML =
-    '<div class="row" style="padding-top:0"><div style="flex:1"><div class="mono" style="font-size:13.5px">'+short(S.address)+'</div><div style="font-size:11px;color:rgba(242,241,246,0.4);margin-top:3px">Pera · TestNet</div></div>'+optPill+'<button class="btn ghost" id="dcBtn" style="height:32px;padding:0 12px;font-size:12px">Disconnect</button></div>'
+    '<div class="row" style="padding-top:0"><div style="flex:1"><div class="mono" style="font-size:13.5px">'+short(S.address)+'</div><div style="font-size:11px;color:rgba(242,241,246,0.4);margin-top:3px">'+S.wallet.label+' · TestNet</div></div>'+optPill+'<button class="btn ghost" id="dcBtn" style="height:32px;padding:0 12px;font-size:12px">Disconnect</button></div>'
     +'<div class="stat"><div><div class="l">ALGO</div><div class="v">'+S.balAlgo.toFixed(3)+'</div></div><div><div class="l">USDC</div><div class="v" style="color:var(--grn2)">'+S.balUsdc.toFixed(3)+'</div></div></div>'+optBtn;
   el('dcBtn').onclick=disconnect;
   if (el('optBtn')) el('optBtn').onclick=optIn;
@@ -179,7 +218,8 @@ function renderWallet(){
 function renderServices(){
   var ready = S.address && S.optedIn && S.info && S.info.enabled;
   el('services').innerHTML = S.services.map(function(s){
-    return '<div class="svc"><div class="svcMid"><div class="t">'+s.description.split(' — ')[0]+'</div><div class="d">'+(s.description.split(' — ')[1]||'')+'</div></div>'
+    var parts = s.description.split(' — ');
+    return '<div class="svc"><div class="svcMid"><div class="t">'+parts[0]+'</div><div class="d">'+(parts[1]||'')+'</div></div>'
       +'<div class="price">'+s.price+'</div><button class="btn pri" data-svc="'+s.id+'" style="height:38px;padding:0 16px;font-size:13px"'+(ready?'':' disabled')+'>Pay & call</button></div>';
   }).join('');
   var btns = el('services').querySelectorAll('[data-svc]');
@@ -191,22 +231,23 @@ function setSteps(list){ el('flowCard').style.display='block'; el('steps').style
 }
 
 async function optIn(){
+  var btn = el('optBtn'); if (btn){ btn.disabled=true; btn.innerHTML='<span class="spinner"></span> Opting in…'; }
   try {
     var sp = await S.algod.getTransactionParams().do();
     var txn = algosdk.makeAssetTransferTxnWithSuggestedParamsFromObject({ sender:S.address, receiver:S.address, amount:0, assetIndex:S.info.assetId, suggestedParams:sp });
-    var signed = await S.wallet.signTransaction([[{ txn: txn, signers:[S.address] }]]);
-    var sent = await S.algod.sendRawTransaction(signed[0]).do();
+    var signedB64 = await S.wallet.signB64(txn);
+    var sent = await S.algod.sendRawTransaction(new Uint8Array(atob(signedB64).split('').map(function(c){return c.charCodeAt(0);}))).do();
     var txid = sent.txid || sent.txId;
     await algosdk.waitForConfirmation(S.algod, txid, 4);
     await refreshAccount();
-  } catch(e){ alert('Opt-in failed: '+String(e)); }
+  } catch(e){ alert('Opt-in failed: '+String(e)); renderWallet(); }
 }
 
-async function pay(svc, btn){
+async function pay(svc, button){
   if (!svc || !S.address) return;
-  var label = btn.innerHTML; btn.disabled=true; btn.innerHTML='<span class="spinner"></span>';
+  var label = button.innerHTML; button.disabled=true; button.innerHTML='<span class="spinner"></span>';
   var input = el('svcInput').value.trim();
-  var steps = [ {k:'on',t:'Requesting service → 402 challenge'}, {k:'',t:'Sign USDC payment in Pera'}, {k:'',t:'Settling on Algorand TestNet'}, {k:'',t:'Service response'} ];
+  var steps = [ {k:'on',t:'Requesting service → 402 challenge'}, {k:'',t:'Sign USDC payment in '+S.wallet.label}, {k:'',t:'Settling on Algorand TestNet'}, {k:'',t:'Service response'} ];
   setSteps(steps);
   function mark(i,k,t){ steps[i].k=k; if(t)steps[i].t=t; setSteps(steps); }
   try {
@@ -223,13 +264,13 @@ async function pay(svc, btn){
       assetIndex: Number(req.asset), suggestedParams: sp,
       note: new TextEncoder().encode('x402:'+req.paymentId)
     });
-    var signed = await S.wallet.signTransaction([[{ txn: txn, signers:[S.address] }]]);
+    var signedB64 = await S.wallet.signB64(txn);
     mark(1,'ok'); mark(2,'on');
 
     // 3. X-PAYMENT retry → server verifies + submits + settles
     var payload = { x402Version:1, paymentId:req.paymentId, nonce:req.nonce, from:S.address,
       amount:req.maxAmountRequired, amountMicroUsdc:req.amountMicroUsdc, authorizedAt:new Date().toISOString(),
-      network:req.network, asset:req.asset, payTo:req.payTo, signedTxnB64:u8ToB64(signed[0]) };
+      network:req.network, asset:req.asset, payTo:req.payTo, signedTxnB64:signedB64 };
     var xpay = btoa(JSON.stringify(payload));
     var payRes = await fetch(svc.path, { method:'POST', headers:{'content-type':'application/json','X-PAYMENT':xpay}, body: JSON.stringify({ text: input }) });
     if (!payRes.ok){ var err = await payRes.json().catch(function(){return {};}); throw new Error(err.detail||err.error||('HTTP '+payRes.status)); }
@@ -241,8 +282,9 @@ async function pay(svc, btn){
     await refreshAccount();
   } catch(e){
     var i = steps.findIndex(function(s){return s.k==='on';}); if(i<0)i=1;
-    mark(i,'err', String(e).indexOf('modal is closed')>=0 || String(e).indexOf('rejected')>=0 ? 'Signature cancelled' : ('Failed: '+String(e)));
-  } finally { btn.disabled=false; btn.innerHTML=label; renderServices(); }
+    var msg = String(e);
+    mark(i,'err', (msg.indexOf('closed')>=0 || msg.indexOf('reject')>=0 || msg.indexOf('cancel')>=0) ? 'Signature cancelled' : ('Failed: '+msg));
+  } finally { button.disabled=false; button.innerHTML=label; renderServices(); }
 }
 
 function addReceipt(svc, settle, body){
