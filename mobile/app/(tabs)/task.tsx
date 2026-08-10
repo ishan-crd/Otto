@@ -1,12 +1,12 @@
 import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
 import { StyleSheet, Text, View } from "react-native";
-import { useSheet } from "../../src/components/BottomSheet";
 import { LiveDot, Mono, PrimaryButton, Screen } from "../../src/components/ui";
 import { STEPS, type Step } from "../../src/data";
 import { c, font, grad, tabular } from "../../src/theme";
 
 export default function ActiveTask() {
-  const sheet = useSheet();
+  const router = useRouter();
   return (
     <Screen>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 9 }}>
@@ -58,7 +58,7 @@ export default function ActiveTask() {
 
       <PrimaryButton
         label="Approve final booking"
-        onPress={() => sheet.open("approve")}
+        onPress={() => router.push("/sheet/approve")}
         style={s.approve}
       />
       <Text style={s.auto}>Auto-approves in 4m 12s</Text>

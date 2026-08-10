@@ -1,14 +1,15 @@
 import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
 import type { ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
-import { useSheet } from "../../src/components/BottomSheet";
+import { receiptParams } from "../../src/components/sheet-nav";
 import { MoneyRow, Mono, Screen, ScreenTitle } from "../../src/components/ui";
 import { CHART, RECEIPTS } from "../../src/data";
 import { c, font, grad, tabular } from "../../src/theme";
 
 export default function Wallet() {
-  const sheet = useSheet();
+  const router = useRouter();
   return (
     <Screen>
       <ScreenTitle title="Wallet" />
@@ -33,7 +34,7 @@ export default function Wallet() {
 
       {/* Actions */}
       <View style={s.actions}>
-        <ActionButton label="Add funds" onPress={() => sheet.open("fund")}>
+        <ActionButton label="Add funds" onPress={() => router.push("/sheet/fund")}>
           <Path
             d="M12 5v14M5 12h14"
             stroke={c.accentBright}
@@ -41,7 +42,7 @@ export default function Wallet() {
             strokeLinecap="round"
           />
         </ActionButton>
-        <ActionButton label="Withdraw" onPress={() => sheet.open("withdraw")}>
+        <ActionButton label="Withdraw" onPress={() => router.push("/sheet/withdraw")}>
           <Path
             d="M12 4v13M6.5 11.5L12 17l5.5-5.5M5 20h14"
             stroke={c.earnBright}
@@ -50,7 +51,7 @@ export default function Wallet() {
             strokeLinejoin="round"
           />
         </ActionButton>
-        <ActionButton label="Connect" onPress={() => sheet.open("connect")}>
+        <ActionButton label="Connect" onPress={() => router.push("/sheet/connect")}>
           <Path
             d="M9.5 14.5l5-5M8 12l-2.2 2.2a3.5 3.5 0 004.9 4.9L13 17M16 12l2.2-2.2a3.5 3.5 0 00-4.9-4.9L11 7"
             stroke={c.accentBright}
@@ -114,7 +115,7 @@ export default function Wallet() {
           <MoneyRow
             key={`${r.tx}-${r.time}`}
             row={r}
-            onPress={() => sheet.open("receipt", { row: r })}
+            onPress={() => router.push({ pathname: "/sheet/receipt", params: receiptParams(r) })}
             last={i === RECEIPTS.length - 1}
           />
         ))}

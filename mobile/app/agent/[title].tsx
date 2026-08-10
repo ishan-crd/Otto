@@ -3,14 +3,12 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
-import { useSheet } from "../../src/components/BottomSheet";
 import { MoneyRow, Mono, PrimaryButton } from "../../src/components/ui";
 import { agentDetail, findGig, type Row } from "../../src/data";
 import { c, font, grad } from "../../src/theme";
 
 export default function AgentDetail() {
   const router = useRouter();
-  const sheet = useSheet();
   const { title } = useLocalSearchParams<{ title: string }>();
   const gig = findGig(title ?? "");
 
@@ -174,7 +172,7 @@ export default function AgentDetail() {
         <SafeAreaView edges={["bottom"]}>
           <PrimaryButton
             label={gig.sell ? "Edit listing" : `Hire ${gig.agent}`}
-            onPress={() => sheet.open("hire", { agentTitle: gig.title })}
+            onPress={() => router.push({ pathname: "/sheet/hire", params: { title: gig.title } })}
             style={{ height: 56 }}
           />
         </SafeAreaView>
