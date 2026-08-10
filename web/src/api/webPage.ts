@@ -143,6 +143,20 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
   .econInput::placeholder{color:rgba(242,241,246,0.34)}
   .econGo{height:56px;flex:none;padding:0 26px;border-radius:15px;border:1px solid rgba(211,206,255,0.4);background:linear-gradient(160deg,#CFC9FF,#9990E8);color:#14121F;font-size:14.5px;font-weight:600;box-shadow:0 14px 30px -14px rgba(160,150,240,0.9)}
   .econGo:hover{filter:brightness(1.05)}
+  .econBudgetRow{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;margin-top:16px}
+  .econBudgetLbl{font-size:11px;letter-spacing:0.14em;color:rgba(242,241,246,0.42)}
+  .econBudgetField{display:flex;align-items:center;gap:4px;height:44px;padding:0 14px;border-radius:13px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);color:rgba(242,241,246,0.55);font-family:var(--mono);font-size:15px;transition:border-color .2s}
+  .econBudgetField:focus-within{border-color:rgba(169,160,255,0.5)}
+  .econBudgetField input{width:76px;background:transparent;border:none;outline:none;color:#F2F1F6;font-family:var(--mono);font-size:16px;font-variant-numeric:tabular-nums;-moz-appearance:textfield}
+  .econBudgetField input::-webkit-outer-spin-button,.econBudgetField input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  .econBudgetUnit{font-size:11px;color:rgba(242,241,246,0.38)}
+  .econBudgetHint{font-size:11.5px;color:rgba(242,241,246,0.34)}
+  .econNodeBlock{background:rgba(255,120,110,0.14);border:1px solid rgba(255,140,130,0.32);color:#FFC2BB;font-weight:700}
+  .econCard.blk{border-color:rgba(255,140,130,0.3)}
+  .econBlock{margin-top:12px;display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:13px;border:1px solid rgba(255,140,130,0.28);background:rgba(255,120,110,0.09);font-size:12.5px;color:#FFD0CA;animation:econPop .4s both}
+  .econBlock b{color:#FFB3AC;font-weight:600}
+  .econBlock.soft{border-color:rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);color:rgba(242,241,246,0.4)}
+  .econDone.blocked{border-color:rgba(255,140,130,0.3);background:linear-gradient(160deg,rgba(255,120,110,0.08),rgba(255,255,255,0.014))}
   .econEx{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:20px}
   .econExLbl{font-size:11px;letter-spacing:0.1em;color:rgba(242,241,246,0.3)}
   .econChip{padding:8px 13px;border-radius:11px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.028);color:rgba(242,241,246,0.62);font-size:12px}
@@ -347,6 +361,11 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
           <div class="econInputWrap">
             <input id="econInput" class="econInput" autocomplete="off" placeholder="Describe anything — e.g. Develop a mobile app for Otto" />
             <button id="econGo" class="econGo">Decompose &amp; hire →</button>
+          </div>
+          <div class="econBudgetRow">
+            <span class="econBudgetLbl">BUDGET</span>
+            <div class="econBudgetField">$<input id="econBudgetInput" type="number" min="0.5" step="0.5" value="10.00" /><span class="econBudgetUnit">USDC</span></div>
+            <span class="econBudgetHint">Otto hires the best agents it can within this — and stops if it runs out.</span>
           </div>
           <div class="econEx">
             <span class="econExLbl">Try</span>
@@ -1346,23 +1365,15 @@ function econCandidates(key){
   var pool=ECON_POOL[key]||['Otto Partner','Agent Node','Specialist Co'];
   var band=ECON_BAND[key]||[0.4,1.0];
   var names=econShuffle(pool).slice(0,3);
-  var cap=band[1]*1.08;
   var cands=[];
   for (var i=0;i<names.length;i++){
     cands.push({ name:names[i], price:econRound(band[0]+Math.random()*(band[1]-band[0])), rating:Math.round((4.62+Math.random()*0.37)*100)/100, over:false });
   }
-  if (Math.random()<0.55){
+  if (Math.random()<0.5){
     var pn=econShuffle(pool).slice(0,1)[0];
-    cands.push({ name:pn+' Pro', price:econRound(cap*(1.15+Math.random()*0.3)), rating:Math.round((4.9+Math.random()*0.09)*100)/100, over:true });
+    cands.push({ name:pn+' Pro', price:econRound(band[1]*(1.12+Math.random()*0.35)), rating:Math.round((4.9+Math.random()*0.09)*100)/100, over:false });
   }
-  for (var k=0;k<cands.length;k++){ if(cands[k].price>cap) cands[k].over=true; }
   return cands;
-}
-function econPick(cands){
-  var best=-1,br=-1;
-  for(var i=0;i<cands.length;i++){ if(!cands[i].over && cands[i].rating>br){ br=cands[i].rating; best=i; } }
-  if(best<0){ var cp=1e9; for(var j=0;j<cands.length;j++){ if(cands[j].price<cp){ cp=cands[j].price; best=j; } } }
-  return best;
 }
 function econTimer(fn,ms){ var t=setTimeout(fn,ms); ECON.timers.push(t); return t; }
 function econStop(){ for(var i=0;i<ECON.timers.length;i++) clearTimeout(ECON.timers[i]); ECON.timers=[]; }
@@ -1380,7 +1391,8 @@ function econStars(r){ var full=Math.round(r),s=''; for(var i=0;i<5;i++) s+= i<f
 function econCandHtml(s,j){
   var cnd=s.cands[j], cls='econCand';
   if (s.phase==='hiring'||s.phase==='delivering'||s.phase==='done') cls += (j===s.pickIdx?' pick':' dim');
-  var badge = (s.phase!=='candidates' && j===s.pickIdx) ? '<span class="econHired">HIRED</span>' : '';
+  else if (s.phase==='blocked' && cnd.over) cls += ' dim';
+  var badge = ((s.phase==='hiring'||s.phase==='delivering'||s.phase==='done') && j===s.pickIdx) ? '<span class="econHired">HIRED</span>' : '';
   var over = cnd.over ? '<div class="econOver">over budget</div>' : '';
   return '<div class="'+cls+'" style="animation-delay:'+(j*0.08)+'s">'
     +'<div class="cn"><div class="econCandAv">'+econInitials(cnd.name)+'</div><div style="min-width:0;flex:1"><div class="econCandName">'+esc(cnd.name)+'</div></div>'+badge+'</div>'
@@ -1388,9 +1400,11 @@ function econCandHtml(s,j){
 }
 function econStageHtml(s){
   if (s.phase==='queued') return '<div class="econSourceText" style="color:rgba(242,241,246,0.3)">Queued — waiting for the previous hire…</div>';
+  if (s.phase==='blocked' && !s.trigger) return '<div class="econBlock soft">Skipped — budget already spent.</div>';
   if (s.phase==='sourcing') return '<div class="econSourcing"><span class="econDots"><i></i><i></i><i></i></span><span class="econSourceText">Otto is sourcing specialist agents…</span></div>'
     +'<div class="econSkelRow"><div class="econSkel"></div><div class="econSkel"></div><div class="econSkel"></div></div>';
   var out='<div class="econCands">'; for(var j=0;j<s.cands.length;j++) out+=econCandHtml(s,j); out+='</div>';
+  if (s.phase==='blocked') return out+'<div class="econBlock">🛑 <b>Spend firewall</b> — '+esc(ECON.blocked||'budget exhausted')+'</div>';
   if (s.phase==='hiring') out+='<div class="econSettle"><div class="sIco">⇄</div><div class="econSettleText">Escrowing <b>'+usd(s.price)+'</b> to <b>'+esc(s.cands[s.pickIdx].name)+'</b> · x402 · USDC</div><div class="econSettleTx">'+s.tx+'</div></div>';
   else if (s.phase==='delivering') out+='<div class="econDeliver"><div class="econDeliverBar"><i></i></div><div class="econDeliverText">'+esc(s.cands[s.pickIdx].name)+' is delivering the work…</div></div>';
   else if (s.phase==='done') out+='<div class="econReview"><span class="econStars">'+econStars(s.cands[s.pickIdx].rating)+'</span><span class="econReviewText">'+esc(s.review)+'</span><span class="econReviewCost">−'+usd(s.price)+'</span></div>';
@@ -1399,6 +1413,7 @@ function econStageHtml(s){
 function econCardInner(i){
   var s=ECON.subs[i], node, ncls;
   if (s.phase==='done'){ ncls='econNodeOk'; node='✓'; }
+  else if (s.phase==='blocked'){ ncls='econNodeBlock'; node='!'; }
   else if (s.phase==='queued'){ ncls='econNodeWait'; node=String(i+1); }
   else { ncls='econNodeRun'; node=String(i+1); }
   return '<div class="econCardTop"><div class="econNode '+ncls+'">'+node+'</div>'
@@ -1406,7 +1421,7 @@ function econCardInner(i){
     +'<div class="econDetail">'+esc(s.detail)+'</div></div></div>'
     +'<div class="econStage">'+econStageHtml(s)+'</div>';
 }
-function econCardClass(s){ return 'econCard'+((s.phase!=='queued'&&s.phase!=='done')?' on':'')+(s.phase==='done'?' ok':''); }
+function econCardClass(s){ return 'econCard'+((s.phase==='sourcing'||s.phase==='candidates'||s.phase==='hiring'||s.phase==='delivering')?' on':'')+(s.phase==='done'?' ok':'')+(s.phase==='blocked'?' blk':''); }
 function econRenderPipe(){
   var html=''; for(var i=0;i<ECON.subs.length;i++) html+='<div class="'+econCardClass(ECON.subs[i])+'" id="econCard'+i+'">'+econCardInner(i)+'</div>';
   document.getElementById('econPipe').innerHTML=html;
@@ -1419,6 +1434,12 @@ function econRunSub(i){
   econTimer(function(){
     s.phase='candidates'; econUpdateCard(i); econOtto('Comparing '+s.cands.length+' bids for “'+s.title+'” — rating vs price…','work');
     econTimer(function(){
+      if (s.blocked){
+        s.phase='blocked'; econUpdateCard(i);
+        for (var k=i+1;k<ECON.subs.length;k++){ ECON.subs[k].phase='blocked'; econUpdateCard(k); }
+        econOtto('🛑 Spend firewall — '+ECON.blocked,'pay');
+        return econTimer(econFinish, 750);
+      }
       s.phase='hiring'; econUpdateCard(i); econOtto('Hiring '+s.cands[s.pickIdx].name+' · escrow '+usd(s.price)+' over x402','pay');
       econTimer(function(){
         s.phase='delivering'; econUpdateCard(i); econOtto(s.cands[s.pickIdx].name+' is delivering the work…','work');
@@ -1433,9 +1454,24 @@ function econRunSub(i){
 }
 function econFinish(){
   ECON.running=false;
+  var d=document.getElementById('econDone');
+  var hired=0; for(var h=0;h<ECON.subs.length;h++) if(ECON.subs[h].phase==='done') hired++;
+  if (ECON.blocked){
+    econOtto('Stopped by the spend firewall — hired '+hired+' of '+ECON.subs.length+' within budget.','pay');
+    d.className='econDone blocked';
+    d.innerHTML='<div class="econDoneHead"><span style="color:#FFB3AC">🛑</span> Stopped within budget</div>'
+      +'<div style="font-size:12.5px;color:rgba(242,241,246,0.5);margin-top:7px;line-height:1.5">'+esc(ECON.blocked)+' Otto stopped rather than overspend — exactly what the spend firewall guarantees.</div>'
+      +'<div class="econDoneStats">'
+      +'<div class="econDoneStat"><div class="k">AGENTS HIRED</div><div class="v">'+hired+' / '+ECON.subs.length+'</div></div>'
+      +'<div class="econDoneStat"><div class="k">SPENT</div><div class="v" style="color:#C8C1FF">'+usd(ECON.spent)+'</div></div>'
+      +'<div class="econDoneStat"><div class="k">BUDGET</div><div class="v">'+usd(ECON.budget)+'</div></div>'
+      +'</div>';
+    d.style.display='block';
+    return;
+  }
   var avg=0; for(var i=0;i<ECON.subs.length;i++) avg+=ECON.subs[i].cands[ECON.subs[i].pickIdx].rating; avg=avg/ECON.subs.length;
   econOtto('Task complete — '+ECON.subs.length+' agents hired and all work delivered.','done');
-  var d=document.getElementById('econDone');
+  d.className='econDone';
   d.innerHTML='<div class="econDoneHead"><span style="color:#8FE3B4">✓</span> “'+esc(ECON.goal)+'” delivered</div>'
     +'<div class="econDoneStats">'
     +'<div class="econDoneStat"><div class="k">AGENTS HIRED</div><div class="v">'+ECON.subs.length+'</div></div>'
@@ -1448,24 +1484,42 @@ function econFinish(){
 function econStart(goal){
   goal=(goal||'').trim(); if(!goal) return;
   econStop();
-  var plan=econDecompose(goal), sumPick=0, revs=econShuffle(ECON_REVIEWS);
-  ECON.goal=goal; ECON.subs=[]; ECON.spent=0; ECON.idx=0; ECON.running=true;
+  var plan=econDecompose(goal), revs=econShuffle(ECON_REVIEWS);
+  ECON.goal=goal; ECON.subs=[]; ECON.spent=0; ECON.idx=0; ECON.running=true; ECON.blocked=null;
   for (var i=0;i<plan.length;i++){
-    var cands=econCandidates(plan[i].key), pickIdx=econPick(cands);
-    ECON.subs.push({ key:plan[i].key, title:plan[i].title, detail:plan[i].detail, cands:cands, pickIdx:pickIdx, price:cands[pickIdx].price, tx:econTx(), review:revs[i % revs.length], phase:'queued' });
-    sumPick+=cands[pickIdx].price;
+    ECON.subs.push({ key:plan[i].key, title:plan[i].title, detail:plan[i].detail, cands:econCandidates(plan[i].key), pickIdx:-1, price:0, tx:econTx(), review:revs[i % revs.length], phase:'queued', blocked:false, trigger:false });
   }
-  ECON.budget=Math.ceil(sumPick*1.28/0.5)*0.5;
+  // Budget: use what the user typed; if blank, auto-size to comfortably cover the plan.
+  var bIn=Number.parseFloat(document.getElementById('econBudgetInput').value);
+  var budget=(isFinite(bIn) && bIn>0) ? econRound(bIn) : 0;
+  if (!budget){
+    var sum=0; for (var a=0;a<ECON.subs.length;a++){ var mn=1e9; for(var b=0;b<ECON.subs[a].cands.length;b++) mn=Math.min(mn,ECON.subs[a].cands[b].price); sum+=mn; }
+    budget=Math.ceil(sum*1.6/0.5)*0.5;
+  }
+  ECON.budget=budget;
+  // Greedy, budget-aware hiring in order: best rating that still fits what's left.
+  var remaining=budget, stopped=false;
+  for (var s=0;s<ECON.subs.length;s++){
+    var sub=ECON.subs[s];
+    if (stopped){ sub.blocked=true; for(var q=0;q<sub.cands.length;q++) sub.cands[q].over=sub.cands[q].price>remaining; continue; }
+    var best=-1,br=-1;
+    for (var c=0;c<sub.cands.length;c++){
+      sub.cands[c].over = sub.cands[c].price > remaining;
+      if (!sub.cands[c].over && sub.cands[c].rating>br){ br=sub.cands[c].rating; best=c; }
+    }
+    if (best<0){ sub.blocked=true; sub.trigger=true; stopped=true; ECON.blocked='Only '+usd(remaining)+' left — no agent for “'+sub.title+'” fits the budget.'; continue; }
+    sub.pickIdx=best; sub.price=sub.cands[best].price; remaining=econRound(remaining-sub.price);
+  }
   document.getElementById('econGoalText').textContent=goal;
   document.getElementById('econGoalText').title=goal;
   document.getElementById('econBudget').textContent=usd(ECON.budget);
   document.getElementById('econSpent').textContent=usd(0);
-  document.getElementById('econCount').textContent='Otto broke this into '+plan.length+' roles · hiring in order, within budget';
+  document.getElementById('econCount').textContent='Otto broke this into '+plan.length+' roles · hiring in order, within your '+usd(ECON.budget)+' budget';
   document.getElementById('econIntro').style.display='none';
   document.getElementById('econRun').style.display='block';
   document.getElementById('econDone').style.display='none';
   econRenderPipe(); econMeter();
-  econOtto('Decomposed the goal into '+plan.length+' roles. Starting to hire…','work');
+  econOtto('Decomposed the goal into '+plan.length+' roles. Budget '+usd(ECON.budget)+'. Starting to hire…','work');
   econTimer(function(){ econRunSub(0); }, 750);
   window.scrollTo(0,0);
 }
