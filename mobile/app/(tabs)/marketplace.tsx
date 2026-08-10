@@ -1,78 +1,28 @@
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
-import { money, otto } from "../../src/api";
-import {
-  AgentAvatar,
-  Mono,
-  Screen,
-  ScreenTitle,
-  Segmented,
-  Tag,
-  type TagKind,
-} from "../../src/components/ui";
-import { CHIPS, type Chip, chipMatch, type Gig } from "../../src/data";
+import { Mono, Screen, ScreenTitle, Tag } from "../../src/components/ui";
+import { type CatalogModel, MODEL_CATALOG, MODEL_SPECS } from "../../src/modelsCatalog";
 import { c, font, grad } from "../../src/theme";
 
-/** A live marketplace agent mapped onto the design's Gig shape (+ serviceId). */
-interface LiveGig extends Gig {
-  serviceId: string;
-}
-
-function tagKind(tag: string): TagKind {
-  if (tag === "RUNNING") return "running";
-  if (tag === "OPEN") return "open";
-  return "accent";
-}
-
+/**
+ * Marketplace — the models Otto can hire, with what each specialises in
+ * (mirrors the web /models catalog, shortened for mobile). Otto picks one per
+ * job and pays it per call over x402.
+ */
 export default function Marketplace() {
-  const router = useRouter();
   const [query, setQuery] = useState("");
-  const [market, setMarket] = useState<"hiring" | "selling">("hiring");
-  const [chip, setChip] = useState<Chip>("All");
-  const [live, setLive] = useState<LiveGig[]>([]);
-
-  const load = useCallback(async () => {
-    try {
-      const m = await otto.marketplace();
-      setLive(
-        m.agents.map((a) => ({
-          serviceId: a.id,
-          title: a.title,
-          agent: a.agent,
-          meta: a.meta,
-          initials: a.initials,
-          price: money(a.price.usdc),
-          unit: a.unit,
-          tag: a.sell ? "LISTED" : "OPEN",
-          rating: a.rating,
-          cta: a.sell ? "Simulate sale" : "Hire",
-          sell: a.sell,
-        })),
-      );
-    } catch {
-      setLive([]);
-    }
-  }, []);
-  useEffect(() => {
-    load();
-  }, [load]);
+  const [spec, setSpec] = useState<string>("All");
 
   const q = query.trim().toLowerCase();
-  const source: (Gig | LiveGig)[] = live.length
-    ? live.filter((g) => (market === "hiring" ? !g.sell : g.sell))
-    : market === "hiring"
-      ? []
-      : [];
-  const gigs = source
-    .filter((g) => chipMatch(chip, g))
-    .filter((g) => !q || `${g.title} ${g.agent} ${g.unit}`.toLowerCase().includes(q));
+  const models = MODEL_CATALOG.filter((m) => spec === "All" || m.spec === spec).filter(
+    (m) => !q || `${m.name} ${m.id} ${m.spec}`.toLowerCase().includes(q),
+  );
 
   return (
     <Screen>
-      <ScreenTitle title="Marketplace" sub="Agents hiring agents" />
+      <ScreenTitle title="Marketplace" sub="The models Otto hires — paid per call over x402" />
 
       <View style={s.search}>
         <Svg
@@ -90,7 +40,7 @@ export default function Marketplace() {
         <TextInput
           value={query}
           onChangeText={setQuery}
-          placeholder="Search agents and skills"
+          placeholder="Search models — try “reasoning”, “video”…"
           placeholderTextColor="rgba(242,241,246,0.4)"
           keyboardAppearance="dark"
           style={s.searchInput}
@@ -102,96 +52,77 @@ export default function Marketplace() {
         )}
       </View>
 
-      <Segmented
-        style={{ marginTop: 11 }}
-        value={market}
-        onChange={setMarket}
-        options={[
-          { value: "hiring", label: "Otto hires" },
-          { value: "selling", label: "Otto sells" },
-        ]}
-      />
-
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         style={{ marginTop: 12 }}
         contentContainerStyle={{ gap: 7 }}
       >
-        {CHIPS.map((ch) => {
-          const on = chip === ch;
+        {MODEL_SPECS.map((sp) => {
+          const on = spec === sp;
           return (
-            <Pressable key={ch} onPress={() => setChip(ch)} style={[s.chip, on && s.chipOn]}>
-              <Text style={[s.chipText, on && { color: c.text }]}>{ch}</Text>
+            <Pressable key={sp} onPress={() => setSpec(sp)} style={[s.chip, on && s.chipOn]}>
+              <Text style={[s.chipText, on && { color: c.text }]}>{sp}</Text>
             </Pressable>
           );
         })}
       </ScrollView>
 
       <View style={{ gap: 11, marginTop: 14 }}>
-        {gigs.map((g) => {
-          const liveGig = "serviceId" in g ? (g as LiveGig) : null;
-          return (
-            <GigCard
-              key={g.title}
-              gig={g}
-              onPress={() =>
-                liveGig
-                  ? router.push({
-                      pathname: "/sheet/hire",
-                      params: {
-                        svc: liveGig.serviceId,
-                        agent: liveGig.agent,
-                        price: liveGig.price,
-                        unit: liveGig.unit,
-                        sell: liveGig.sell ? "1" : "0",
-                      },
-                    })
-                  : router.push(`/agent/${encodeURIComponent(g.title)}`)
-              }
-            />
-          );
-        })}
-        {gigs.length === 0 && <Text style={s.empty}>No agents match “{query}”.</Text>}
+        {models.map((m) => (
+          <ModelCard key={m.id} m={m} />
+        ))}
+        {models.length === 0 && <Text style={s.empty}>No models match “{query}”.</Text>}
       </View>
     </Screen>
   );
 }
 
-function GigCard({ gig, onPress }: { gig: Gig; onPress: () => void }) {
+const initials = (provider: string) =>
+  provider
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
+const fmtPrice = (n: number) => (n === 0 ? "free" : `$${n < 0.01 ? n.toFixed(3) : n.toFixed(2)}`);
+const fmtCtx = (n: number) => (n >= 1000000 ? `${n / 1000000}M` : `${Math.round(n / 1000)}K`);
+
+function ModelCard({ m }: { m: CatalogModel }) {
   return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => pressed && { transform: [{ scale: 0.985 }] }}
+    <LinearGradient
+      colors={grad.card}
+      start={{ x: 0.1, y: 0 }}
+      end={{ x: 0.9, y: 1 }}
+      style={s.card}
     >
-      <LinearGradient
-        colors={grad.card}
-        start={{ x: 0.1, y: 0 }}
-        end={{ x: 0.9, y: 1 }}
-        style={s.card}
-      >
-        <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 12 }}>
-          <AgentAvatar initials={gig.initials} sell={gig.sell} />
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <Text style={s.title}>{gig.title}</Text>
-            <Text style={s.meta}>
-              {gig.agent} · {gig.meta}
-            </Text>
-          </View>
-          <Tag label={gig.tag} kind={tagKind(gig.tag)} />
+      <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 12 }}>
+        <View style={s.avatar}>
+          <Text style={s.avatarText}>{initials(m.provider)}</Text>
         </View>
-        <View style={s.cardFoot}>
-          <Mono color={gig.sell ? c.earnBright : c.text} style={{ fontSize: 15 }}>
-            {gig.price}
-          </Mono>
-          <Text style={s.unit}>{gig.unit}</Text>
-          <View style={{ marginLeft: "auto", flexDirection: "row", alignItems: "center", gap: 10 }}>
-            <Mono style={{ fontSize: 11, color: c.faint }}>★ {gig.rating}</Mono>
-            <Text style={s.cta}>{gig.cta}</Text>
-          </View>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={s.title} numberOfLines={1}>
+            {m.name}
+          </Text>
+          <Mono style={s.modelId}>{m.id}</Mono>
         </View>
-      </LinearGradient>
-    </Pressable>
+        <Tag label={m.spec.toUpperCase()} kind={m.inM === 0 ? "running" : "accent"} />
+      </View>
+      <View style={s.cardFoot}>
+        <Mono color={m.inM === 0 ? c.earnBright : c.text} style={{ fontSize: 14 }}>
+          {fmtPrice(m.inM)}
+        </Mono>
+        <Text style={s.unit}>/M in</Text>
+        <Mono color={c.spend} style={{ fontSize: 14, marginLeft: 8 }}>
+          {fmtPrice(m.outM)}
+        </Mono>
+        <Text style={s.unit}>/M out</Text>
+        <Mono style={{ marginLeft: "auto", fontSize: 11, color: c.faint }}>
+          {fmtCtx(m.ctx)} ctx
+        </Mono>
+      </View>
+    </LinearGradient>
   );
 }
 
@@ -230,19 +161,29 @@ const s = StyleSheet.create({
   chipText: { color: c.muted, fontSize: 12.5, fontFamily: font.regular },
 
   card: { borderRadius: 24, borderWidth: 1, borderColor: c.border, padding: 16 },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 13,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: c.border,
+    backgroundColor: "#22212E",
+  },
+  avatarText: { color: c.accentBright, fontSize: 12, fontFamily: font.semibold },
   title: { color: c.text, fontSize: 14, fontFamily: font.medium, letterSpacing: -0.2 },
-  meta: { color: c.faint, fontSize: 11.5, marginTop: 4, fontFamily: font.regular },
+  modelId: { color: c.dim, fontSize: 9.5, marginTop: 4 },
   cardFoot: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 4,
     marginTop: 14,
     paddingTop: 13,
     borderTopWidth: 1,
     borderTopColor: c.hairline,
   },
-  unit: { color: c.dim, fontSize: 11, fontFamily: font.regular },
-  cta: { color: c.accent2, fontSize: 12, fontFamily: font.medium },
+  unit: { color: c.dim, fontSize: 10.5, fontFamily: font.regular },
 
   empty: {
     color: c.faint,
