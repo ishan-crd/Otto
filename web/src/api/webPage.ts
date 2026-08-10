@@ -1218,50 +1218,125 @@ var ECON_POOL = {
   coord:['Clockwork','Cue','Runsheet'],
   plan:['Planwright','Blueprint AI','Scoper'],
   exec:['Executor','Doer AI','Handiwork','Shipit'],
-  review:['Referee','QualityGate','Second Look']
+  review:['Referee','QualityGate','Second Look'],
+  strategy:['Northstar Strategy','Vector Growth','Playbook AI'],
+  content:['Storyforge','Evergreen','Narrative Labs'],
+  video:['Reelcraft AI','Avatarworks','UGC Studio','Synthesis Media'],
+  social:['Cadence Social','Postpilot','Hivemind'],
+  schedule:['Autopost AI','Cadence Engine','Recurly Ops'],
+  seo:['Rankwell','Serpsmith','Organic AI'],
+  email:['Inboxly','Dripworks','Sendcraft'],
+  brand:['Identity Co','Marque','Toneworks'],
+  sales:['Pipeline AI','Leadhunter','Closer'],
+  support:['Helpdesk AI','Careline','Resolve'],
+  legal:['Clausewise','Lexguard','Terms AI'],
+  finance:['Ledgerwise','Pricepoint','Fiscal AI'],
+  localize:['Polyglot','Localize AI','Lingua'],
+  data:['Quant Lens','Signal Labs','Datawright'],
+  mobile:['Expo Guild','Nativeworks','Appforge'],
+  devops:['Shipyard','Helm Ops','Pipeline Co'],
+  photo:['Shotworks','Lens AI','Framecraft'],
+  design_ux:['Aurora UX','Flowcraft','Pixelwright']
 };
 var ECON_BAND = {
   design:[0.55,1.20], frontend:[0.80,1.60], backend:[0.90,1.75], qa:[0.30,0.70],
   research:[0.40,0.95], copy:[0.35,0.85], ads:[0.50,1.10], analyst:[0.55,1.15],
   writer:[0.45,1.00], editor:[0.30,0.65], flights:[0.25,0.60], hotels:[0.35,0.80],
   visa:[0.15,0.40], itin:[0.30,0.70], venue:[0.40,0.95], catering:[0.45,1.05],
-  coord:[0.35,0.75], plan:[0.30,0.70], exec:[0.60,1.30], review:[0.25,0.60]
+  coord:[0.35,0.75], plan:[0.30,0.70], exec:[0.60,1.30], review:[0.25,0.60],
+  strategy:[0.60,1.30], content:[0.45,1.00], video:[0.80,1.70], social:[0.40,0.90],
+  schedule:[0.30,0.70], seo:[0.50,1.10], email:[0.40,0.90], brand:[0.55,1.20],
+  sales:[0.50,1.10], support:[0.30,0.70], legal:[0.70,1.50], finance:[0.60,1.30],
+  localize:[0.35,0.80], data:[0.55,1.15], mobile:[0.85,1.70], devops:[0.60,1.30],
+  photo:[0.40,0.90], design_ux:[0.55,1.20]
 };
 var ECON_REVIEWS = ['Clean, on-brief and well documented.','Fast turnaround — matched every constraint.','Exceeded spec, great edge-case handling.','Solid, production-ready work.','Polished and ready to ship.','Thorough and clearly explained.'];
 
-function econRole(key,title,detail){ return {key:key,title:title,detail:detail}; }
+// Capability library — each entry is a specialist Otto can hire. Decomposition
+// scans the goal for ANY of a capability's signals and composes the matched
+// roles (deduped, ordered by pipeline stage). Dev roles are gated behind a real
+// build verb so nouns like "app" don't drag a marketing goal into engineering.
+var DEV_VERBS = ['develop','build','coding',' code ','engineer','program','implement','mvp','prototype','ship a','rebuild','refactor','integrate '];
+var ECON_CAPS = [
+  {key:'strategy',bucket:'marketing',pri:1,title:'Campaign Strategist',detail:'Positioning, channels and a launch plan',kw:['campaign','launch','go-to-market','gtm','strategy','positioning','marketing plan','promote','awareness']},
+  {key:'research',bucket:'marketing',pri:1,title:'Market Researcher',detail:'Audience, competitors and real demand',kw:['research','audience','market','competitor','persona','survey','trend']},
+  {key:'brand',bucket:'marketing',pri:2,title:'Brand Strategist',detail:'Identity, naming and tone of voice',kw:['brand','identity','rebrand','naming','tone of voice']},
+  {key:'content',bucket:'marketing',pri:3,title:'Content Strategist',detail:'Organic, natural content and a calendar',kw:['content','organic','natural','editorial','storytell','calendar']},
+  {key:'copy',bucket:'marketing',pri:4,title:'Copywriter',detail:'Captions, hooks and post copy',kw:['copy','copywrit','caption','headline','messaging','script']},
+  {key:'video',bucket:'marketing',pri:4,title:'AI Video Creator',detail:'AI human / UGC creator videos and reels',kw:['video','reel','tiktok','youtube','short','ugc','ai human','ai creator','avatar','talking head','faceless','creator']},
+  {key:'design',bucket:'marketing',pri:5,title:'Creative Designer',detail:'Ad creative, thumbnails and brand visuals',kw:['creative','graphic','visual','thumbnail','banner','illustrat','poster']},
+  {key:'photo',bucket:'marketing',pri:5,title:'Photo & Asset Agent',detail:'Product shots and image assets',kw:['photo','product shot','imagery']},
+  {key:'seo',bucket:'marketing',pri:6,title:'SEO Specialist',detail:'Rank for the terms buyers search',kw:['seo','rank','keyword','search engine']},
+  {key:'email',bucket:'marketing',pri:6,title:'Email Marketer',detail:'Newsletters and lifecycle sequences',kw:['email','newsletter','sequence','lifecycle']},
+  {key:'schedule',bucket:'marketing',pri:7,title:'Scheduling & Automation Agent',detail:'Recurring posting on a set cadence',kw:['recur','schedul','automat','regularly','daily','weekly','cadence','drip','cron','repeatedly','ongoing','auto-post','autopost','post consistently']},
+  {key:'social',bucket:'marketing',pri:7,title:'Social Media Manager',detail:'Publishing and community across platforms',kw:['social','instagram','tiktok','linkedin','facebook','threads','posting','posts','post ']},
+  {key:'ads',bucket:'marketing',pri:8,title:'Ads Specialist',detail:'Paid acquisition, targeting and optimisation',kw:['ads','advertis','paid ','ppc','retarget']},
+  {key:'design_ux',bucket:'dev',pri:3,gate:'dev',title:'UI/UX Designer',detail:'Flows, wireframes and a design system',kw:['ui','ux','wireframe','prototype','design system','interface']},
+  {key:'frontend',bucket:'dev',pri:4,gate:'dev',title:'Frontend Engineer',detail:'Screens, state and interactions',kw:['frontend','front-end','react','vue','web app','website','client-side']},
+  {key:'backend',bucket:'dev',pri:4,gate:'dev',title:'Backend Engineer',detail:'APIs, data model, auth and payments',kw:['backend','back-end','api','server','database','auth','payment']},
+  {key:'mobile',bucket:'dev',pri:4,gate:'dev',title:'Mobile Engineer',detail:'Native iOS / Android build',kw:['ios','android','expo','react native','mobile']},
+  {key:'qa',bucket:'dev',pri:8,gate:'dev',title:'QA & Test Agent',detail:'Tests, regressions and a verified build',kw:['qa','testing',' test ','bug','quality assurance']},
+  {key:'devops',bucket:'dev',pri:9,gate:'dev',title:'DevOps Agent',detail:'CI/CD, hosting and deploys',kw:['deploy','devops','ci/cd','infra','hosting','pipeline']},
+  {key:'data',bucket:'data',pri:8,title:'Data Analyst',detail:'Metrics, dashboards and KPIs',kw:['data','analytics','metric','kpi','track performance','measure']},
+  {key:'analyst',bucket:'data',pri:6,title:'Analyst',detail:'Synthesis and insight',kw:['insight','synthesis','analyse','analyze','analysis']},
+  {key:'writer',bucket:'writing',pri:4,title:'Writer',detail:'Draft the long-form',kw:['report','article','essay','whitepaper','blog','documentation','write-up']},
+  {key:'editor',bucket:'writing',pri:8,title:'Editor',detail:'Fact-check, polish and format',kw:['edit','proofread','polish','fact-check']},
+  {key:'flights',bucket:'travel',pri:3,title:'Flight Agent',detail:'Cheapest policy-safe fares',kw:['flight','fare','airline']},
+  {key:'hotels',bucket:'travel',pri:4,title:'Hotel Agent',detail:'Shortlist by area and price',kw:['hotel','stay','accommodation']},
+  {key:'visa',bucket:'travel',pri:5,title:'Visa & Entry Agent',detail:'Entry rules and documents',kw:['visa','entry rule','passport']},
+  {key:'itin',bucket:'travel',pri:6,title:'Itinerary Planner',detail:'A day-by-day plan',kw:['itinerary','trip','travel','vacation','holiday']},
+  {key:'venue',bucket:'events',pri:3,title:'Venue Scout',detail:'Find and price venues',kw:['venue','hall',' location']},
+  {key:'catering',bucket:'events',pri:4,title:'Catering Agent',detail:'Menus and quotes',kw:['catering','food','menu']},
+  {key:'coord',bucket:'events',pri:7,title:'Event Coordinator',detail:'Timeline and logistics',kw:['event','wedding','conference','coordinate','logistics','party']},
+  {key:'sales',bucket:'commerce',pri:6,title:'Sales Agent',detail:'Leads, outreach and pipeline',kw:['sales','lead','outreach','crm','prospect']},
+  {key:'support',bucket:'commerce',pri:8,title:'Support Agent',detail:'Answer customers and resolve tickets',kw:['support','customer service','helpdesk','ticket']},
+  {key:'legal',bucket:'commerce',pri:7,title:'Legal Agent',detail:'Contracts, terms and compliance',kw:['legal','contract','compliance','terms','privacy policy']},
+  {key:'finance',bucket:'commerce',pri:7,title:'Finance Agent',detail:'Pricing, budget and invoicing',kw:['finance','pricing','invoice','accounting','budget model']},
+  {key:'localize',bucket:'commerce',pri:6,title:'Localization Agent',detail:'Translate and localise',kw:['translat','localis','localize','multi-language','i18n']},
+  {key:'plan',bucket:'generic',pri:2,title:'Planning Agent',detail:'Break the goal into a concrete plan',kw:['__none__']},
+  {key:'exec',bucket:'generic',pri:5,title:'Execution Agent',detail:'Do the core work',kw:['__none__']},
+  {key:'review',bucket:'generic',pri:9,title:'Review Agent',detail:'Verify quality and hand off',kw:['review','verify','sign off','approve','qa the']}
+];
+var ECON_BUCKET_DEFAULT = {
+  marketing:['strategy','research','content','copy','social'],
+  dev:['design_ux','frontend','backend','qa'],
+  data:['research','data','analyst'],
+  writing:['research','writer','editor'],
+  travel:['flights','hotels','visa','itin'],
+  events:['venue','catering','design','coord'],
+  commerce:['research','sales','copy'],
+  generic:['research','plan','exec','review']
+};
+
 function econDecompose(goal){
   var g=(' '+goal+' ').toLowerCase();
-  function has(){ for(var i=0;i<arguments.length;i++){ if(g.indexOf(arguments[i])>=0) return true; } return false; }
-  if (has('app','website','web','software','platform','dashboard','mobile','develop','build','code','saas','api','product','frontend','backend'))
-    return [ econRole('design','UI/UX Designer','Interface, flows and a design system'),
-      econRole('frontend','Frontend Engineer','Screens, state and animations'),
-      econRole('backend','Backend Engineer','APIs, data model, auth and payments'),
-      econRole('qa','QA & Test Agent','Tests, regressions and a verified build') ];
-  if (has('market','campaign','launch','brand','ads','growth','seo','social'))
-    return [ econRole('research','Market Researcher','Size the market, profile the audience'),
-      econRole('copy','Copywriter','Landing copy, emails and ad variants'),
-      econRole('design','Creative Designer','Ad creative and brand visuals'),
-      econRole('ads','Ads Specialist','Target, launch and optimise campaigns') ];
-  if (has('trip','travel','flight','hotel','vacation','holiday','book'))
-    return [ econRole('flights','Flight Agent','Cheapest policy-safe fares'),
-      econRole('hotels','Hotel Agent','Shortlist by area and price'),
-      econRole('visa','Visa & Entry Agent','Entry rules and documents'),
-      econRole('itin','Itinerary Planner','A day-by-day plan') ];
-  if (has('research','report','analy','study','paper','write','essay','article','thesis'))
-    return [ econRole('research','Research Agent','Gather and vet sources'),
-      econRole('analyst','Analyst','Synthesise findings and data'),
-      econRole('writer','Writer','Draft the report'),
-      econRole('editor','Editor','Fact-check, polish and format') ];
-  if (has('event','wedding','party','conference','organis','organize'))
-    return [ econRole('venue','Venue Scout','Find and price venues'),
-      econRole('catering','Catering Agent','Menus and quotes'),
-      econRole('design','Decor Designer','Theme and styling'),
-      econRole('coord','Coordinator','Timeline and logistics') ];
-  return [ econRole('research','Research Agent','Understand the goal and constraints'),
-    econRole('plan','Planning Agent','Break it into a concrete plan'),
-    econRole('exec','Execution Agent','Do the core work'),
-    econRole('review','Review Agent','Verify quality and hand off') ];
+  function hit(kw){ for(var i=0;i<kw.length;i++){ if(kw[i]!=='__none__' && g.indexOf(kw[i])>=0) return true; } return false; }
+  var devIntent=false; for(var d=0;d<DEV_VERBS.length;d++){ if(g.indexOf(DEV_VERBS[d])>=0){ devIntent=true; break; } }
+  var capByKey={}; for(var c=0;c<ECON_CAPS.length;c++) capByKey[ECON_CAPS[c].key]=ECON_CAPS[c];
+  var matched=[], seen={}, bucketScore={};
+  for(var j=0;j<ECON_CAPS.length;j++){
+    var cap=ECON_CAPS[j];
+    if(cap.gate==='dev' && !devIntent) continue;
+    if(hit(cap.kw) && !seen[cap.key]){ seen[cap.key]=1; matched.push(cap); bucketScore[cap.bucket]=(bucketScore[cap.bucket]||0)+1; }
+  }
+  var bucket='generic', bs=-1;
+  for(var b in bucketScore){ if(bucketScore[b]>bs){ bs=bucketScore[b]; bucket=b; } }
+  if(matched.length===0){
+    if(devIntent) bucket='dev';
+    else if(hit(['trip','travel','flight','hotel','vacation','holiday'])) bucket='travel';
+    else if(hit(['event','wedding','party','conference'])) bucket='events';
+    else if(hit(['market','campaign','promot','brand','ads','social','content','video','post'])) bucket='marketing';
+    else if(hit(['report','research','write','article','essay','analy'])) bucket='writing';
+    else bucket='generic';
+  }
+  var plan=matched.slice();
+  var def=ECON_BUCKET_DEFAULT[bucket]||ECON_BUCKET_DEFAULT.generic;
+  for(var k=0;k<def.length && plan.length<4;k++){ if(!seen[def[k]] && capByKey[def[k]]){ seen[def[k]]=1; plan.push(capByKey[def[k]]); } }
+  var gen=ECON_BUCKET_DEFAULT.generic;
+  for(var m=0;m<gen.length && plan.length<3;m++){ if(!seen[gen[m]]){ seen[gen[m]]=1; plan.push(capByKey[gen[m]]); } }
+  plan.sort(function(a,b){ return a.pri-b.pri; });
+  if(plan.length>6) plan=plan.slice(0,6);
+  return plan.map(function(x){ return {key:x.key, title:x.title, detail:x.detail}; });
 }
 function econShuffle(a){ a=a.slice(); for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=a[i];a[i]=a[j];a[j]=t; } return a; }
 function econRound(x){ return Math.round(x*100)/100; }
