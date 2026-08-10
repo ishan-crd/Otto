@@ -12,36 +12,38 @@ import type {
  * Real rail: settles each micropayment as a USDC (ASA) transfer on Algorand
  * TestNet. TestNet USDC has 6 decimals, so 1 micro-USDC == 1 ASA base unit.
  *
+ * Two payer models are supported, both settling real on-chain txns:
+ *   - SERVER pays (autonomous agent): PAYER_MNEMONIC is set, pay() signs.
+ *   - BROWSER pays (user's Pera wallet): no server key needed — the wallet
+ *     signs client-side and posts the signed txn; the server only verify()s +
+ *     settle()s it. This is the live "connect wallet & test" flow.
+ *
  * Maps onto the x402 whitepaper flow (Figure 1):
  *   pay()    = CLIENT signs the asset-transfer txn ("Client Signs")
  *   verify() = FACILITATOR /verify — is this authorization valid (BEFORE work)
  *   settle() = FACILITATOR /settle — broadcast + confirm (AFTER work), returns tx id
- *
- * We settle directly through algod by default (fully in our control, most
- * reliable for a live demo). To route verify/settle through the GoPlausible
- * facilitator instead, set FACILITATOR_URL and use the *ViaFacilitator helpers;
- * confirm their exact request shape during the dry run (SETUP.md, step 7).
  */
 export class AlgorandRail implements PaymentRail {
   readonly kind = "algorand-testnet" as const;
   private readonly algod: algosdk.Algodv2;
-  private readonly payer: algosdk.Account;
+  private readonly payer: algosdk.Account | null;
   private readonly asset: number;
   private readonly receiver: string;
   private readonly explorerBase: string;
   private readonly facilitatorUrl: string;
 
   constructor(cfg: Config) {
-    if (!cfg.PAYER_MNEMONIC) throw new Error("RAIL=algorand requires PAYER_MNEMONIC in .env");
     this.algod = new algosdk.Algodv2(cfg.ALGOD_TOKEN, cfg.ALGOD_SERVER, cfg.ALGOD_PORT);
-    this.payer = algosdk.mnemonicToSecretKey(cfg.PAYER_MNEMONIC.trim());
+    this.payer = cfg.PAYER_MNEMONIC ? algosdk.mnemonicToSecretKey(cfg.PAYER_MNEMONIC.trim()) : null;
     this.asset = cfg.USDC_ASSET_ID;
-    this.receiver = cfg.RECEIVER_ADDRESS || this.payer.addr.toString();
+    this.receiver = cfg.RECEIVER_ADDRESS || (this.payer ? this.payer.addr.toString() : "");
     this.explorerBase = cfg.EXPLORER_TX_BASE;
     this.facilitatorUrl = cfg.FACILITATOR_URL;
   }
 
   receiverAddress() {
+    if (!this.receiver)
+      throw new Error("Algorand rail needs RECEIVER_ADDRESS (or PAYER_MNEMONIC) in .env");
     return this.receiver;
   }
   assetId() {
@@ -51,7 +53,10 @@ export class AlgorandRail implements PaymentRail {
     return "ASA";
   }
 
+  /** SERVER-side pay (autonomous agent). Requires PAYER_MNEMONIC. */
   async pay(req: PaymentRequirements): Promise<PaymentPayload> {
+    if (!this.payer)
+      throw new Error("Algorand pay() needs PAYER_MNEMONIC (browser wallet signs instead)");
     const sp = await this.algod.getTransactionParams().do();
     const txn = algosdk.makeAssetTransferTxnWithSuggestedParamsFromObject({
       sender: this.payer.addr,
@@ -78,10 +83,9 @@ export class AlgorandRail implements PaymentRail {
   }
 
   /**
-   * /verify — validate the signed authorization before doing the work. We
-   * decode the signed txn and check it really is a USDC transfer of the right
-   * amount to the right recipient. (A production facilitator would also dry-run
-   * it on-chain; POST to facilitatorUrl+"/verify" to delegate that.)
+   * /verify — validate the signed authorization before doing the work. Decodes
+   * the signed txn and checks it is a USDC transfer of the right amount to the
+   * right recipient (whether it was signed server-side or by the user's wallet).
    */
   async verify(req: PaymentRequirements, payload: PaymentPayload): Promise<VerifyResult> {
     if (!payload.signedTxnB64) return { valid: false, reason: "missing signed txn" };
@@ -89,18 +93,24 @@ export class AlgorandRail implements PaymentRail {
       const bytes = new Uint8Array(Buffer.from(payload.signedTxnB64, "base64"));
       const decoded = algosdk.decodeSignedTransaction(bytes);
       const txn = decoded.txn as unknown as {
-        type?: string;
-        assetTransfer?: { amount?: bigint | number; assetIndex?: bigint | number };
+        assetTransfer?: {
+          amount?: bigint | number;
+          assetIndex?: bigint | number;
+          receiver?: { toString(): string };
+        };
       };
       const at = txn.assetTransfer;
-      const amount = Number(at?.amount ?? -1);
-      const assetIndex = Number(at?.assetIndex ?? -1);
-      if (assetIndex !== this.asset) return { valid: false, reason: "wrong asset" };
-      if (amount !== req.amountMicroUsdc) return { valid: false, reason: "amount mismatch" };
+      if (!at) return { valid: false, reason: "not an asset transfer" };
+      if (Number(at.assetIndex ?? -1) !== this.asset)
+        return { valid: false, reason: "wrong asset" };
+      if (Number(at.amount ?? -1) !== req.amountMicroUsdc)
+        return { valid: false, reason: "amount mismatch" };
+      const to = at.receiver ? at.receiver.toString() : "";
+      if (to && to !== req.payTo) return { valid: false, reason: "wrong recipient" };
       return { valid: true };
     } catch (err) {
-      // Different algosdk minor versions expose the decoded txn slightly
-      // differently; fall back to trusting settle to reject an invalid txn.
+      // algosdk minor versions expose the decoded txn slightly differently; fall
+      // back to trusting settle to reject an invalid txn on-chain.
       return { valid: true, reason: `verify-soft: ${String(err)}` };
     }
   }

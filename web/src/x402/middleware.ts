@@ -2,8 +2,19 @@ import { randomUUID } from "node:crypto";
 import type { Context, MiddlewareHandler } from "hono";
 import { microToUsdcStr, PAYMENT_TTL_SECONDS } from "../config";
 import { getRail } from "../rails";
-import type { PaymentPayload, PaymentRequirements, SettlementReceipt } from "../rails/types";
+import type {
+  PaymentPayload,
+  PaymentRail,
+  PaymentRequirements,
+  SettlementReceipt,
+} from "../rails/types";
 import { consume, issue, lookup } from "./challenges";
+
+interface PaidOptions {
+  description?: string;
+  /** Override the rail (e.g. the real Algorand rail for the live wallet flow). */
+  rail?: PaymentRail;
+}
 
 /**
  * Turns any Hono route into a paid x402 endpoint, following the whitepaper flow
@@ -20,10 +31,11 @@ import { consume, issue, lookup } from "./challenges";
 export function paid(
   priceMicroUsdc: number,
   resource: string,
-  description?: string,
+  opts?: PaidOptions,
 ): MiddlewareHandler {
+  const description = opts?.description;
   return async (c: Context, next) => {
-    const rail = getRail();
+    const rail = opts?.rail ?? getRail();
     const header = c.req.header("X-PAYMENT");
 
     // ── Step 1 & 2: no payment -> 402 challenge ──
