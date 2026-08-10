@@ -41,6 +41,8 @@ const Env = z.object({
   // endpoints use free, no-key public APIs and always work without this.
   OPENROUTER_API_KEY: z.string().default(""),
   OPENROUTER_MODEL: z.string().default("openai/gpt-4o-mini"),
+  // Optional: use YOUR Anthropic key directly for bare claude-* model ids.
+  ANTHROPIC_API_KEY: z.string().default(""),
 });
 
 const parsed = Env.parse(process.env);

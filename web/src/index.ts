@@ -4,6 +4,8 @@ import { cors } from "hono/cors";
 import { dashboard } from "./api/dashboard";
 import { mountModels } from "./api/models";
 import { PAY_PAGE_HTML } from "./api/payPage";
+import { mountPromptMarket } from "./api/promptMarket";
+import { PROMPT_PAGE_HTML } from "./api/promptPage";
 import { DASHBOARD_HTML } from "./api/webPage";
 import { config, fmtUsdc } from "./config";
 import { SERVICES } from "./services/registry";
@@ -22,6 +24,10 @@ app.get("/", (c) => c.html(DASHBOARD_HTML));
 app.get("/pay", (c) => c.html(PAY_PAGE_HTML));
 mountLive(app);
 mountModels(app);
+
+// Sell-a-Prompt marketplace: pay-per-prompt, priced by output size, over x402.
+app.get("/prompt", (c) => c.html(PROMPT_PAGE_HTML));
+mountPromptMarket(app);
 
 // Mount every registry service as a paid x402 endpoint.
 for (const service of SERVICES) {
