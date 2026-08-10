@@ -63,6 +63,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       const [info, status] = await Promise.all([otto.liveInfo(), otto.liveStatus()]);
       setLiveInfo(info);
       setLiveStatus(status);
+      // The server owns the connection — connect on web and this flips too.
+      if (typeof status.connected === "boolean") setWalletConnected(status.connected);
     } catch {
       /* server unreachable — leave the last known snapshot */
     }
@@ -70,23 +72,22 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
   const connectWallet = useCallback(async () => {
     setWalletConnected(true);
+    otto.connectLive().catch(() => {});
     await refreshWallet();
-    toast("✓ Wallet connected — Otto's TestNet account is live");
+    toast("✓ Wallet connected — synced to every device");
   }, [refreshWallet, toast]);
 
   const disconnectWallet = useCallback(() => {
     setWalletConnected(false);
-    setLiveStatus(null);
+    otto.disconnectLive().catch(() => {});
   }, []);
 
-  // Poll the on-chain status while connected so funded/opted-in/balance stay live.
+  // Always poll: keeps balances fresh AND syncs the connection across devices.
   useEffect(() => {
-    if (!walletConnected) return;
-    const p = setInterval(() => {
-      if (connectedRef.current) void refreshWallet();
-    }, 6000);
+    void refreshWallet();
+    const p = setInterval(() => void refreshWallet(), 6000);
     return () => clearInterval(p);
-  }, [walletConnected, refreshWallet]);
+  }, [refreshWallet]);
 
   useEffect(
     () => () => {

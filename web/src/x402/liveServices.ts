@@ -1,6 +1,7 @@
 import algosdk from "algosdk";
 import type { Hono } from "hono";
 import { config, microToUsdc, microToUsdcStr, usdcToMicro } from "../config";
+import { loadState, saveState } from "../db/supaStore";
 import { AlgorandRail } from "../rails/algorandRail";
 import { loadOttoWallet } from "../rails/ottoWallet";
 import { paid } from "./middleware";
@@ -200,6 +201,28 @@ export function ottoAddress() {
 
 export function mountLive(app: Hono) {
   const cfg = effectiveConfig();
+
+  // Wallet-connection state shared by every client (web + mobile see the same
+  // thing) and persisted in app_state, so it survives restarts too.
+  let connState: boolean | null = null;
+  async function connection(): Promise<boolean> {
+    if (connState === null)
+      connState =
+        (await loadState<{ connected: boolean }>("wallet_connection"))?.connected ?? false;
+    return connState;
+  }
+
+  app.get("/api/live/connection", async (c) => c.json({ connected: await connection() }));
+  app.post("/api/live/connect", async (c) => {
+    connState = true;
+    void saveState("wallet_connection", { connected: true });
+    return c.json({ ok: true, connected: true });
+  });
+  app.post("/api/live/disconnect", async (c) => {
+    connState = false;
+    void saveState("wallet_connection", { connected: false });
+    return c.json({ ok: true, connected: false });
+  });
   const rail = new AlgorandRail(cfg);
   const algod = new algosdk.Algodv2(cfg.ALGOD_TOKEN, cfg.ALGOD_SERVER, cfg.ALGOD_PORT);
   const payer = algosdk.mnemonicToSecretKey(cfg.PAYER_MNEMONIC.trim());
@@ -239,6 +262,7 @@ export function mountLive(app: Hono) {
         funded: algo > 0.15,
         optedIn: Boolean(usdcAsset),
         usdc: usdcAsset ? Number(usdcAsset.amount ?? 0) / 1e6 : 0,
+        connected: await connection(),
       });
     } catch {
       // Unfunded accounts can 404 on some nodes — report a clean zero state.
@@ -248,6 +272,7 @@ export function mountLive(app: Hono) {
         funded: false,
         optedIn: false,
         usdc: 0,
+        connected: await connection(),
       });
     }
   });

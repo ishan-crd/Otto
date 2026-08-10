@@ -66,6 +66,23 @@ function scheduleSnapshots() {
   }, 400);
 }
 
+/** Generic persisted key/value for other modules (no-op until the DB is on). */
+export async function saveState(key: string, value: unknown): Promise<void> {
+  if (dbOn) await putState(key, value);
+}
+
+export async function loadState<T>(key: string): Promise<T | null> {
+  if (!dbOn) return null;
+  try {
+    const res = await rest(`/app_state?select=value&key=eq.${encodeURIComponent(key)}&limit=1`);
+    if (!res.ok) return null;
+    const rows = (await res.json()) as { value: T }[];
+    return rows[0]?.value ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export function persistPolicy(p: Policy) {
   if (!dbOn) return;
   void putState("policy", p);

@@ -1,13 +1,23 @@
+import Constants from "expo-constants";
+
 /**
- * Otto backend client. Points at the Node server in `web/`. All money comes
- * back as both `micro` (int) and `usdc` (float); the app displays usdc.
+ * Otto backend client. Points at the Node server in `web/`.
  *
- * ⚠️ localhost gotcha: a physical phone can't reach your computer's "localhost".
- *   - iOS Simulator / web  → http://localhost:8787 works as-is.
- *   - Real phone via Expo Go → set your computer's LAN IP, e.g.
- *       EXPO_PUBLIC_OTTO_API=http://192.168.1.23:8787   (find it: `ipconfig getifaddr en0`)
+ * The base URL resolves in order:
+ *   1. EXPO_PUBLIC_OTTO_API env (e.g. a cloudflared tunnel URL) — always wins.
+ *   2. The Expo dev server's own host — on a physical phone this is your
+ *      computer's LAN IP, so the app reaches the backend with ZERO config as
+ *      long as `pnpm dev:web` is running on the same machine.
+ *   3. localhost (iOS simulator / web).
  */
-export const API_BASE = process.env.EXPO_PUBLIC_OTTO_API ?? "http://localhost:8787";
+function resolveApiBase(): string {
+  if (process.env.EXPO_PUBLIC_OTTO_API) return process.env.EXPO_PUBLIC_OTTO_API;
+  const hostUri: string = Constants.expoConfig?.hostUri ?? "";
+  const host = hostUri.split(":")[0];
+  if (host && host !== "localhost" && host !== "127.0.0.1") return `http://${host}:8787`;
+  return "http://localhost:8787";
+}
+export const API_BASE = resolveApiBase();
 
 /** The live wallet-payment page (Pera/Lute sign real testnet USDC). */
 export const PAY_URL = `${API_BASE}/pay`;
@@ -124,6 +134,8 @@ export interface LiveStatus {
   funded: boolean;
   optedIn: boolean;
   usdc: number;
+  /** Shared across web + mobile (server-side, persisted). */
+  connected?: boolean;
 }
 
 /** A live pay-per-call service Otto sells (GET /api/live/services). */
@@ -188,6 +200,8 @@ export const otto = {
   liveStatus: () => jget<LiveStatus>("/api/live/status"),
   liveServices: () => jget<{ services: LiveService[] }>("/api/live/services"),
   optin: () => jsend<OptinResult>("POST", "/api/live/optin"),
+  connectLive: () => jsend<{ ok: boolean }>("POST", "/api/live/connect"),
+  disconnectLive: () => jsend<{ ok: boolean }>("POST", "/api/live/disconnect"),
   selfPay: (serviceId: string, text?: string) =>
     jsend<SelfPayResult>("POST", "/api/live/self-pay", { serviceId, text }),
 

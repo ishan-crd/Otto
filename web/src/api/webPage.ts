@@ -13,6 +13,8 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="icon" type="image/svg+xml" href="/logo.svg" />
+<link rel="apple-touch-icon" href="/icon.png" />
 <title>Otto — the AI that earns its keep</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -266,7 +268,7 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
   <aside class="side">
     <button class="railToggle" id="sideToggle" title="Collapse sidebar">‹</button>
     <div class="logo">
-      <div class="logoMark"><div></div></div>
+      <img src="/logo.svg" alt="Otto" style="width:36px;height:36px;flex:none" />
       <div class="logoText"><div class="logoName">Otto</div><div class="logoSub">AUTONOMOUS AGENT</div></div>
     </div>
     <div>
@@ -1212,6 +1214,7 @@ function connectWallet(){
 function disconnectWallet(){
   state.walletConnected = false; state.popOpen = false;
   try { localStorage.removeItem('ottoWalletConnected'); } catch(_){}
+  fetch('/api/live/disconnect',{method:'POST'}).catch(function(){});
   document.getElementById('walletPop').style.display='none';
   renderWallet();
 }
@@ -1281,9 +1284,13 @@ function togglePop(){
   if (state.popOpen){ renderPop(); pop.style.display='block'; } else pop.style.display='none';
 }
 function pollLiveStatus(){
-  if (!state.walletConnected) return;
   fetch('/api/live/status').then(function(r){return r.json();}).then(function(s){
-    state.liveStatus = s; renderWallet();
+    state.liveStatus = s;
+    if (typeof s.connected === 'boolean' && s.connected !== state.walletConnected){
+      state.walletConnected = s.connected;
+      try { s.connected ? localStorage.setItem('ottoWalletConnected','1') : localStorage.removeItem('ottoWalletConnected'); } catch(_){}
+    }
+    renderWallet();
   }).catch(function(){});
 }
 document.getElementById('walletBtn').addEventListener('click', connectWallet);
@@ -1798,7 +1805,7 @@ setInterval(function(){ state.tick++; if(!state.feedLive) renderFeed(); }, 3800)
 setInterval(function(){ pollWallet(); pollLedger(); pollStats(); }, 4000);
 setInterval(pollLiveStatus, 6000);
 pollWallet(); pollLedger(); pollStats(); pollPolicy(); pollLiveInfo();
-if (state.walletConnected) pollLiveStatus();
+pollLiveStatus();
 loadMarketplace(); setTimeout(renderTrusted, 900);
 </script>
 

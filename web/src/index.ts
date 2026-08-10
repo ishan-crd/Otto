@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
@@ -17,6 +19,25 @@ const app = new Hono();
 
 // The frontend runs on its own dev server during the hackathon — allow it.
 app.use("*", cors());
+
+// Brand assets (favicon + app icon), read once at boot.
+const LOGO_SVG = readFileSync(path.resolve(process.cwd(), "assets/otto-aperture.svg"));
+const ICON_PNG = readFileSync(path.resolve(process.cwd(), "assets/otto-app-icon.png"));
+app.get("/logo.svg", (c) =>
+  c.body(LOGO_SVG, 200, {
+    "content-type": "image/svg+xml",
+    "cache-control": "public, max-age=86400",
+  }),
+);
+app.get("/icon.png", (c) =>
+  c.body(ICON_PNG, 200, { "content-type": "image/png", "cache-control": "public, max-age=86400" }),
+);
+app.get("/favicon.ico", (c) =>
+  c.body(LOGO_SVG, 200, {
+    "content-type": "image/svg+xml",
+    "cache-control": "public, max-age=86400",
+  }),
+);
 
 // Built-in browser dashboard so you can SEE Otto working — served at root.
 app.get("/", (c) => c.html(DASHBOARD_HTML));

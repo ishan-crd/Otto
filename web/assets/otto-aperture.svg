@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" fill="none">
+  <defs>
+    <linearGradient id="apRing" gradientUnits="userSpaceOnUse" x1="24" y1="18" x2="96" y2="102">
+      <stop offset="0%" stop-color="#DAD4FA"></stop>
+      <stop offset="46%" stop-color="#B0A7E8"></stop>
+      <stop offset="100%" stop-color="#7C74BE"></stop>
+    </linearGradient>
+    <linearGradient id="apLens" gradientUnits="userSpaceOnUse" x1="48" y1="30" x2="72" y2="90">
+      <stop offset="0%" stop-color="#CFC8FA"></stop>
+      <stop offset="100%" stop-color="#9189DE"></stop>
+    </linearGradient>
+  </defs>
+  <circle cx="46" cy="60" r="26.5" stroke="url(#apRing)" stroke-width="7"></circle>
+  <circle cx="74" cy="60" r="26.5" stroke="url(#apRing)" stroke-width="7"></circle>
+  <path d="M60 37.4a26.5 26.5 0 000 45.2 26.5 26.5 0 000-45.2z" fill="url(#apLens)"></path>
+</svg>

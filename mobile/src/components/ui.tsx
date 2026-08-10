@@ -20,6 +20,13 @@ import {
   type ViewStyle,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import Svg, {
+  Circle,
+  Defs,
+  Stop,
+  LinearGradient as SvgGradient,
+  Path as SvgPath,
+} from "react-native-svg";
 import type { Row } from "../data";
 import { c, font, grad, radius, tabular } from "../theme";
 
@@ -360,31 +367,25 @@ export function AgentAvatar({ initials, sell = false }: { initials: string; sell
   );
 }
 
-/** Otto's brand mark — a lavender-metal rounded square with a dark inner ring. */
-export function OttoMark({ size = 42, ring = 12 }: { size?: number; ring?: number }) {
+/** Otto's brand mark — the lavender aperture (two lenses sharing a focus). */
+export function OttoMark({ size = 42 }: { size?: number; ring?: number }) {
   return (
-    <LinearGradient
-      colors={grad.logoMark}
-      start={{ x: 0.2, y: 0 }}
-      end={{ x: 0.9, y: 1 }}
-      style={{
-        width: size,
-        height: size,
-        borderRadius: size * 0.36,
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      <View
-        style={{
-          width: ring,
-          height: ring,
-          borderRadius: ring,
-          borderWidth: ring * 0.22,
-          borderColor: "#131320",
-        }}
-      />
-    </LinearGradient>
+    <Svg width={size} height={size} viewBox="0 0 120 120" fill="none">
+      <Defs>
+        <SvgGradient id="apRing" gradientUnits="userSpaceOnUse" x1="24" y1="18" x2="96" y2="102">
+          <Stop offset="0%" stopColor="#DAD4FA" />
+          <Stop offset="46%" stopColor="#B0A7E8" />
+          <Stop offset="100%" stopColor="#7C74BE" />
+        </SvgGradient>
+        <SvgGradient id="apLens" gradientUnits="userSpaceOnUse" x1="48" y1="30" x2="72" y2="90">
+          <Stop offset="0%" stopColor="#CFC8FA" />
+          <Stop offset="100%" stopColor="#9189DE" />
+        </SvgGradient>
+      </Defs>
+      <Circle cx="46" cy="60" r="26.5" stroke="url(#apRing)" strokeWidth="7" />
+      <Circle cx="74" cy="60" r="26.5" stroke="url(#apRing)" strokeWidth="7" />
+      <SvgPath d="M60 37.4a26.5 26.5 0 000 45.2 26.5 26.5 0 000-45.2z" fill="url(#apLens)" />
+    </Svg>
   );
 }
 
