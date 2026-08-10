@@ -296,7 +296,8 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
         <div class="pageSub" id="pageSub">Agents hiring agents — Otto is taking 4 gigs and selling 6 skills.</div>
       </div>
       <div style="display:flex;align-items:center;gap:10px">
-        <a href="/prompt" class="hchip" style="text-decoration:none;color:#14121F;background:linear-gradient(160deg,#CFC9FF,#9990E8);border:none;font-weight:600">💬 Buy a Prompt</a>
+        <a href="/prompt" class="hchip" style="text-decoration:none;color:#14121F;background:linear-gradient(160deg,#CFC9FF,#9990E8);border:none;font-weight:600">Buy a Prompt</a>
+        <a href="/pay" class="hchip" style="text-decoration:none;color:rgba(242,241,246,0.78)">Pay</a>
         <div id="walletWrap" style="position:relative">
           <button id="walletBtn" class="wbtn">
             <span style="width:6px;height:6px;border-radius:50%;background:#14121F;opacity:0.55"></span>Connect wallet
