@@ -2,7 +2,7 @@
   "name": "otto-monorepo",
   "version": "0.1.0",
   "private": true,
-  "description": "Otto — the AI that earns its keep. Monorepo: web (backend + dashboard) + mobile (Expo).",
+  "description": "Otto \u2014 the AI that earns its keep. Monorepo: web (backend + dashboard) + mobile (Expo).",
   "scripts": {
     "dev": "concurrently -n web,mob -c blue,magenta \"pnpm dev:web\" \"pnpm dev:mob\"",
     "dev:web": "pnpm -C web dev",
@@ -16,7 +16,8 @@
     "dry-run": "pnpm -C web dry-run",
     "gen-wallet": "pnpm -C web gen-wallet",
     "check-wallet": "pnpm -C web check-wallet",
-    "demo": "pnpm -C web demo"
+    "demo": "pnpm -C web demo",
+    "tunnel": "cloudflared tunnel --edge-ip-version 4 --url http://localhost:8787"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.7",
