@@ -163,6 +163,30 @@ export interface SelfPayResult {
   detail?: string;
 }
 
+/** Output-priced prompt quote (POST /api/prompt/quote). */
+export interface PromptQuote {
+  jobId: string;
+  model: string;
+  outputTokens: number;
+  words: number;
+  priceUsdc: number;
+  baseUsdc: number;
+  perTokenUsdc: number;
+  preview: string;
+}
+
+/** Paid prompt result (POST /api/prompt/claim-demo). */
+export interface PromptClaim {
+  ok: boolean;
+  answer?: string;
+  model?: string;
+  outputTokens?: number;
+  priceUsdc?: number;
+  txId?: string;
+  explorerUrl?: string;
+  detail?: string;
+}
+
 /** A live OpenRouter model with per-million-token pricing (GET /api/models). */
 export interface OpenRouterModel {
   id: string;
@@ -201,6 +225,10 @@ export const otto = {
   liveServices: () => jget<{ services: LiveService[] }>("/api/live/services"),
   optin: () => jsend<OptinResult>("POST", "/api/live/optin"),
   connectLive: () => jsend<{ ok: boolean }>("POST", "/api/live/connect"),
+  promptQuote: (prompt: string, model: string) =>
+    jsend<PromptQuote>("POST", "/api/prompt/quote", { prompt, model }),
+  promptClaimDemo: (jobId: string) =>
+    jsend<PromptClaim>("POST", "/api/prompt/claim-demo", { jobId }),
   disconnectLive: () => jsend<{ ok: boolean }>("POST", "/api/live/disconnect"),
   selfPay: (serviceId: string, text?: string) =>
     jsend<SelfPayResult>("POST", "/api/live/self-pay", { serviceId, text }),

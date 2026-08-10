@@ -4,6 +4,7 @@ import { type ReactNode, useCallback, useEffect, useRef, useState } from "react"
 import { Animated, Easing, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { money, otto } from "../../src/api";
 import { useAppState } from "../../src/components/AppState";
+import { BuyPrompt } from "../../src/components/BuyPrompt";
 import { Mono, ProgressBar, Screen } from "../../src/components/ui";
 import {
   type EcoModel,
@@ -28,6 +29,7 @@ export default function Home() {
   const router = useRouter();
   const { walletConnected, liveStatus } = useAppState();
   const [mode, setMode] = useState<"intro" | "run">("intro");
+  const [homeTab, setHomeTab] = useState<"hire" | "prompt">("hire");
   const [goal, setGoal] = useState("");
   const [budgetText, setBudgetText] = useState("10.00");
   const [plan, setPlan] = useState<EconomyPlan | null>(null);
@@ -157,7 +159,13 @@ export default function Home() {
       <View style={s.header}>
         <View>
           <Text style={s.hi}>Agent Economy</Text>
-          <Text style={s.hiBig}>{mode === "intro" ? "Give Otto a goal" : "Otto is hiring"}</Text>
+          <Text style={s.hiBig}>
+            {homeTab === "prompt"
+              ? "Buy a prompt"
+              : mode === "intro"
+                ? "Give Otto a goal"
+                : "Otto is hiring"}
+          </Text>
         </View>
         <Pressable
           onPress={() => router.push("/sheet/connect")}
@@ -188,7 +196,11 @@ export default function Home() {
         </Pressable>
       </View>
 
-      {mode === "intro" ? (
+      <HomeToggle tab={homeTab} onChange={setHomeTab} />
+
+      {homeTab === "prompt" ? (
+        <BuyPrompt />
+      ) : mode === "intro" ? (
         <Intro budgetText={budgetText} setBudgetText={setBudgetText} onStart={start} />
       ) : (
         <RunView
@@ -204,6 +216,60 @@ export default function Home() {
         />
       )}
     </Screen>
+  );
+}
+
+/* ── Home toggle: Hire agents ↔ Buy a prompt (sliding pill) ───────────────── */
+function HomeToggle({
+  tab,
+  onChange,
+}: {
+  tab: "hire" | "prompt";
+  onChange: (t: "hire" | "prompt") => void;
+}) {
+  const [w, setW] = useState(0);
+  const x = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.spring(x, {
+      toValue: tab === "hire" ? 0 : 1,
+      useNativeDriver: true,
+      tension: 90,
+      friction: 13,
+    }).start();
+  }, [tab, x]);
+  const half = Math.max(0, (w - 8) / 2);
+  return (
+    <View style={s.toggle} onLayout={(e) => setW(e.nativeEvent.layout.width)}>
+      {w > 0 && (
+        <Animated.View
+          style={[
+            s.togglePill,
+            {
+              width: half,
+              transform: [
+                { translateX: x.interpolate({ inputRange: [0, 1], outputRange: [0, half] }) },
+              ],
+            },
+          ]}
+        >
+          <LinearGradient
+            colors={grad.primary}
+            start={{ x: 0.1, y: 0 }}
+            end={{ x: 0.9, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+        </Animated.View>
+      )}
+      {(["hire", "prompt"] as const).map((t) => (
+        <Pressable key={t} onPress={() => onChange(t)} style={s.toggleItem}>
+          <Text
+            style={[s.toggleText, tab === t && { color: "#14121F", fontFamily: font.semibold }]}
+          >
+            {t === "hire" ? "🤖 Hire agents" : "💬 Buy a prompt"}
+          </Text>
+        </Pressable>
+      ))}
+    </View>
   );
 }
 
@@ -778,7 +844,28 @@ const s = StyleSheet.create({
   walletChipText: { color: c.text, fontSize: 12.5, fontFamily: font.medium },
   wDot: { width: 7, height: 7, borderRadius: 4 },
 
-  intro: { marginTop: 22 },
+  toggle: {
+    flexDirection: "row",
+    marginTop: 18,
+    padding: 4,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: c.border,
+    backgroundColor: "rgba(255,255,255,0.035)",
+    position: "relative",
+  },
+  togglePill: {
+    position: "absolute",
+    left: 4,
+    top: 4,
+    bottom: 4,
+    borderRadius: 11,
+    overflow: "hidden",
+  },
+  toggleItem: { flex: 1, height: 40, alignItems: "center", justifyContent: "center" },
+  toggleText: { color: c.muted, fontSize: 13, fontFamily: font.medium },
+
+  intro: { marginTop: 14 },
   introKicker: { color: c.faint, fontSize: 11, letterSpacing: 1.4, fontFamily: font.medium },
   introBig: {
     color: c.text,
