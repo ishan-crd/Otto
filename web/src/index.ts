@@ -5,6 +5,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { dashboard } from "./api/dashboard";
 import { mountModels } from "./api/models";
+import { MODELS_PAGE_HTML } from "./api/modelsPage";
 import { PAY_PAGE_HTML } from "./api/payPage";
 import { mountPromptMarket } from "./api/promptMarket";
 import { PROMPT_PAGE_HTML } from "./api/promptPage";
@@ -49,6 +50,7 @@ mountModels(app);
 
 // Buy-a-Prompt: get an output-priced quote, pay over x402, reveal the answer.
 app.get("/prompt", (c) => c.html(PROMPT_PAGE_HTML));
+app.get("/models", (c) => c.html(MODELS_PAGE_HTML));
 mountPromptMarket(app);
 
 // Mount every registry service as a paid x402 endpoint.

@@ -642,13 +642,14 @@ var SVG = 'width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="curren
 var ICONS = {
   market:'<svg '+SVG+'><rect x="3" y="3" width="7" height="7" rx="1.6"/><rect x="14" y="3" width="7" height="7" rx="1.6"/><rect x="3" y="14" width="7" height="7" rx="1.6"/><rect x="14" y="14" width="7" height="7" rx="1.6"/></svg>',
   economy:'<svg '+SVG+'><circle cx="12" cy="5" r="2.1"/><circle cx="5" cy="18" r="2.1"/><circle cx="19" cy="18" r="2.1"/><path d="M12 7.1v2.8M10.6 11.9l-4 4.1M13.4 11.9l4 4.1"/><circle cx="12" cy="11.5" r="1.5"/></svg>',
+  modelsPg:'<svg '+SVG+"><circle cx='12' cy='12' r='3.2'/><circle cx='12' cy='12' r='8.5'/><path d='M12 3.5v2M12 18.5v2M3.5 12h2M18.5 12h2'/></svg>",
   treasury:'<svg '+SVG+'><path d="M4 20V10M9.5 20V6M15 20v-4M20.5 20V3.5"/></svg>',
   task:'<svg '+SVG+'><polyline points="3 12 7 12 10 4 14 20 17 12 21 12"/></svg>',
   wallet:'<svg '+SVG+'><rect x="3" y="6" width="18" height="13" rx="2.4"/><path d="M3 10h18"/><circle cx="16.5" cy="14.5" r="1.1" fill="currentColor" stroke="none"/></svg>',
   receipts:'<svg '+SVG+'><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6"/><path d="M9 12h5"/></svg>',
   rules:'<svg '+SVG+'><path d="M12 3l7 3v5c0 4.6-3.1 7.8-7 9-3.9-1.2-7-4.4-7-9V6z"/><path d="M9.5 12l1.8 1.8L15 10"/></svg>'
 };
-var NAV = [ {id:'market',label:'Marketplace',count:''}, {id:'economy',label:'Agent Economy',count:''}, {id:'treasury',label:'Treasury',count:''}, {id:'task',label:'Active task',count:''}, {id:'wallet',label:'Wallet',count:''}, {id:'receipts',label:'Receipts',count:''}, {id:'rules',label:'Rules & limits',count:''} ];
+var NAV = [ {id:'market',label:'Marketplace',count:''}, {id:'economy',label:'Agent Economy',count:''}, {id:'treasury',label:'Treasury',count:''}, {id:'modelsPg',label:'Models',count:''}, {id:'task',label:'Active task',count:''}, {id:'wallet',label:'Wallet',count:''}, {id:'receipts',label:'Receipts',count:''}, {id:'rules',label:'Rules & limits',count:''} ];
 var TITLES = { market:'Marketplace', economy:'Agent Economy', treasury:'Treasury', task:'Active task', wallet:'Wallet', receipts:'Receipts', rules:'Rules & limits' };
 var SUBS = {
   market:'Agents hiring agents — a live x402 marketplace.',
@@ -922,7 +923,7 @@ function setTab(t){ state.tab=t; document.getElementById('tabHiring').className=
 function setFilter(f, el){ state.filter=f; var seg=el.parentNode.children; for(var i=0;i<seg.length;i++){ seg[i].className='t'+(seg[i].getAttribute('data-filter')===f?' on':''); } renderLedger(); }
 
 document.addEventListener('click', function(e){
-  var nav=e.target.closest('[data-page]'); if(nav){ e.preventDefault(); setPage(nav.getAttribute('data-page')); return; }
+  var nav=e.target.closest('[data-page]'); if(nav){ e.preventDefault(); var pg=nav.getAttribute('data-page'); if(pg==='modelsPg'){ location.href='/models'; return; } setPage(pg); return; }
   var tab=e.target.closest('[data-tab]'); if(tab){ setTab(tab.getAttribute('data-tab')); return; }
   var flt=e.target.closest('[data-filter]'); if(flt){ setFilter(flt.getAttribute('data-filter'), flt); return; }
   var hireBtn=e.target.closest('[data-hire]'); if(hireBtn){ hire(hireBtn.getAttribute('data-hire'), hireBtn); return; }
