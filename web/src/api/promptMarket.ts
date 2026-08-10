@@ -5,6 +5,7 @@ import { AlgorandRail } from "../rails/algorandRail";
 import { loadOttoWallet } from "../rails/ottoWallet";
 import type { PaymentPayload, PaymentRequirements } from "../rails/types";
 import { consume, issue, lookup } from "../x402/challenges";
+import { getUser } from "./auth";
 
 /**
  * Buy-a-Prompt marketplace (two-sided):
@@ -31,6 +32,7 @@ interface Seller {
   earningsMicro: number;
   sold: number;
   house: boolean;
+  ownerEmail: string;
   createdMs: number;
 }
 const sellers = new Map<string, Seller>();
@@ -157,6 +159,7 @@ const publicSeller = (s: Seller) => ({
   sold: s.sold,
   earnedUsdc: microToUsdc(s.earningsMicro),
   house: s.house,
+  ownerEmail: s.ownerEmail,
   connected: Boolean(s.apiKey),
 });
 
@@ -183,6 +186,7 @@ export function mountPromptMarket(app: Hono) {
     earningsMicro: 0,
     sold: 0,
     house: true,
+    ownerEmail: "",
     createdMs: Date.now(),
   });
 
@@ -224,7 +228,8 @@ export function mountPromptMarket(app: Hono) {
         payoutAddress?: string;
       }>()
       .catch(() => ({}) as never);
-    const name = String(b.name ?? "").trim();
+    const owner = getUser(c);
+    const name = String(b.name ?? "").trim() || owner?.name || "";
     const apiKey = String(b.apiKey ?? "").trim();
     const model = String(b.model ?? "").trim();
     const provider = b.provider === "anthropic" ? "anthropic" : "openrouter";
@@ -245,6 +250,7 @@ export function mountPromptMarket(app: Hono) {
       earningsMicro: 0,
       sold: 0,
       house: false,
+      ownerEmail: owner?.email ?? "",
       createdMs: Date.now(),
     });
     return c.json({ ok: true, seller: publicSeller(sellers.get(id) as Seller) });

@@ -1,7 +1,8 @@
 /**
- * The Buy-a-Prompt marketplace, served at /prompt.
- *   - Buy: pick a provider, get an output-priced quote, pay over x402 → answer.
- *   - Sell: connect your Claude / OpenRouter key, set a rate, get listed.
+ * The Buy-a-Prompt marketplace, served at /prompt — login-gated with two role
+ * experiences:
+ *   - BUYER: pick a provider, get an output-priced quote, pay over x402 → answer.
+ *   - SELLER: connect your Claude / OpenRouter key, list it, watch it earn.
  */
 export const PROMPT_PAGE_HTML = /* html */ `<!DOCTYPE html>
 <html lang="en">
@@ -18,18 +19,18 @@ export const PROMPT_PAGE_HTML = /* html */ `<!DOCTYPE html>
   *{box-sizing:border-box}
   html,body{margin:0;background:var(--bg);color:var(--tx);font-family:'Space Grotesk',system-ui,sans-serif}
   a{color:var(--lav)} .mono{font-family:var(--mono)}
-  .wrap{max-width:780px;margin:0 auto;padding:40px 22px 90px}
-  .top{display:flex;align-items:center;justify-content:space-between;gap:14px}
+  .wrap{max-width:780px;margin:0 auto;padding:26px 22px 90px}
+  .top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
   .back{font-size:13px;color:var(--mut);text-decoration:none}
-  .chip{display:inline-flex;align-items:center;gap:7px;font-size:11.5px;color:var(--mut);border:1px solid var(--bd);background:var(--card);border-radius:99px;padding:6px 12px}
-  .dot{width:6px;height:6px;border-radius:50%;background:var(--grn)}
-  h1{font-size:clamp(30px,5vw,46px);letter-spacing:-0.03em;line-height:1.05;margin:26px 0 10px;
+  .acct{display:flex;align-items:center;gap:10px}
+  .rolechip{display:inline-flex;align-items:center;gap:7px;font-size:11.5px;border-radius:99px;padding:6px 12px;border:1px solid var(--bd);background:var(--card)}
+  .rolechip.buyer{color:var(--lav2);border-color:rgba(169,160,255,0.28);background:rgba(169,160,255,0.08)}
+  .rolechip.seller{color:var(--grn2);border-color:rgba(143,227,180,0.24);background:rgba(143,227,180,0.07)}
+  .logout{font-size:12px;color:var(--mut);background:none;border:1px solid var(--bd);border-radius:10px;padding:7px 12px;cursor:pointer}
+  .logout:hover{color:var(--tx)}
+  h1{font-size:clamp(28px,5vw,42px);letter-spacing:-0.03em;line-height:1.05;margin:22px 0 8px;
     background:linear-gradient(180deg,#fff,#C7C1F0 80%,#9B93D6);-webkit-background-clip:text;background-clip:text;color:transparent}
-  .lead{font-size:15px;color:var(--mut);line-height:1.55;max-width:640px}
-  .tabs{display:inline-flex;gap:5px;padding:4px;border:1px solid var(--bd);background:var(--card);border-radius:13px;margin-top:22px}
-  .tab{padding:8px 16px;border-radius:10px;font-size:13px;color:var(--mut);cursor:pointer;border:1px solid transparent}
-  .tab.on{color:var(--tx);background:rgba(169,160,255,0.16);border-color:rgba(169,160,255,0.24)}
-  .view{display:none} .view.on{display:block}
+  .lead{font-size:14.5px;color:var(--mut);line-height:1.55;max-width:640px}
   .card{border:1px solid var(--bd);background:var(--card);border-radius:20px;padding:20px;margin-top:18px}
   label{font-size:11px;letter-spacing:0.07em;color:var(--dim);display:block;margin-bottom:7px}
   textarea,input,select{width:100%;background:rgba(10,10,11,0.5);border:1px solid var(--bd);border-radius:12px;color:var(--tx);font-family:inherit;font-size:14.5px;padding:12px 14px;outline:none}
@@ -43,7 +44,8 @@ export const PROMPT_PAGE_HTML = /* html */ `<!DOCTYPE html>
   .btn:disabled{opacity:0.6;cursor:default}
   .plabel{font-size:10px;letter-spacing:0.08em;color:var(--dim);margin-bottom:9px}
   .providers{display:flex;flex-direction:column;gap:9px}
-  .prov{display:flex;align-items:center;gap:13px;border:1px solid var(--bd);background:rgba(255,255,255,0.028);border-radius:15px;padding:13px 15px;cursor:pointer}
+  .prov{display:flex;align-items:center;gap:13px;border:1px solid var(--bd);background:rgba(255,255,255,0.028);border-radius:15px;padding:13px 15px}
+  .prov.buy{cursor:pointer}
   .prov.sel{border-color:rgba(169,160,255,0.5);background:rgba(169,160,255,0.08)}
   .provAv{width:38px;height:38px;flex:none;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:#C9C3FF;background:linear-gradient(150deg,#33304A,#16161F);border:1px solid var(--bd)}
   .provName{font-size:14px;font-weight:600}
@@ -66,25 +68,27 @@ export const PROMPT_PAGE_HTML = /* html */ `<!DOCTYPE html>
   .rmeta{margin-top:14px;padding-top:14px;border-top:1px solid var(--bd);font-size:12px;color:var(--mut)}
   .note{font-size:12px;color:var(--dim);margin-top:14px;line-height:1.6}
   .ok{color:var(--grn2)}
+  .stats{display:flex;gap:12px;margin-top:16px;flex-wrap:wrap}
+  .stat{flex:1;min-width:130px;border:1px solid var(--bd);background:rgba(255,255,255,0.03);border-radius:15px;padding:14px 16px}
+  .stat .k{font-size:10px;letter-spacing:0.06em;color:var(--dim)}
+  .stat .v{font-family:var(--mono);font-size:22px;margin-top:5px}
+  .view{display:none} .view.on{display:block}
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="top">
     <a class="back" href="/">‹ Otto dashboard</a>
-    <span class="chip"><span class="dot"></span> USDC · Algorand TestNet</span>
+    <div class="acct">
+      <span class="rolechip" id="roleChip">…</span>
+      <button class="logout" id="logout">Log out</button>
+    </div>
   </div>
 
-  <h1>Buy a prompt.</h1>
-  <div class="lead">Out of AI credits? Buy a single prompt from a provider. You get a quote priced by the <b>actual answer size</b>, and it unlocks once you pay — a real USDC micropayment over x402 on Algorand. Have spare capacity? Connect your Claude and sell.</div>
-
-  <div class="tabs">
-    <div class="tab on" id="tabBuy">Buy</div>
-    <div class="tab" id="tabSell">Sell your Claude</div>
-  </div>
-
-  <!-- BUY -->
-  <div class="view on" id="viewBuy">
+  <!-- BUYER -->
+  <div class="view" id="viewBuyer">
+    <h1>Buy a prompt.</h1>
+    <div class="lead">Out of AI credits? Buy a single prompt from a provider. You get a quote priced by the <b>actual answer size</b>, and it unlocks once you pay — a real USDC micropayment over x402 on Algorand.</div>
     <div class="card">
       <div class="plabel">CHOOSE A PROVIDER</div>
       <div class="providers" id="providers"></div>
@@ -92,7 +96,6 @@ export const PROMPT_PAGE_HTML = /* html */ `<!DOCTYPE html>
         <textarea id="prompt" placeholder="e.g. Write a 6-line pitch for an AI that pays other AIs to do work."></textarea></div>
       <div class="row"><button class="btn pri" id="quoteBtn">Get quote &amp; buy</button></div>
     </div>
-
     <div class="quote" id="quote">
       <div class="qhead">
         <div><div class="plabel">PRICE FOR THIS ANSWER</div><div class="qprice" id="qPrice">$0.00</div><div class="qbreak" id="qBreak"></div></div>
@@ -107,7 +110,6 @@ export const PROMPT_PAGE_HTML = /* html */ `<!DOCTYPE html>
       </div>
       <div class="note">“Otto (demo)” pays from Otto’s funded TestNet account — one click, real on-chain settlement. Pera / Lute pay from your wallet (needs test USDC + opt-in).</div>
     </div>
-
     <div class="result" id="result">
       <div class="rhead">✓ Paid — here’s your answer</div>
       <div class="answer mono" id="aAnswer"></div>
@@ -115,8 +117,16 @@ export const PROMPT_PAGE_HTML = /* html */ `<!DOCTYPE html>
     </div>
   </div>
 
-  <!-- SELL -->
-  <div class="view" id="viewSell">
+  <!-- SELLER -->
+  <div class="view" id="viewSeller">
+    <h1>Sell your prompts.</h1>
+    <div class="lead">Connect your Claude / OpenRouter key and list it as a provider. Buyers’ prompts run on your key and you earn USDC per sale, settled on Algorand.</div>
+    <div class="stats">
+      <div class="stat"><div class="k">YOUR PROVIDERS</div><div class="v" id="sCount">0</div></div>
+      <div class="stat"><div class="k">PROMPTS SOLD</div><div class="v" id="sSold">0</div></div>
+      <div class="stat"><div class="k">EARNED (USDC)</div><div class="v" id="sEarned" style="color:var(--grn2)">$0.00</div></div>
+    </div>
+    <div id="myProviders" style="margin-top:16px"></div>
     <div class="card">
       <div class="plabel">CONNECT YOUR CLAUDE &amp; LIST IT</div>
       <div class="note" style="margin-top:0;margin-bottom:16px">Your key runs buyers’ prompts on your account and earns you USDC per sale. It’s held in memory for this session only — never written to disk or returned.</div>
@@ -135,46 +145,55 @@ export const PROMPT_PAGE_HTML = /* html */ `<!DOCTYPE html>
       </div>
       <div class="row"><button class="btn pri" id="listBtn">List my provider</button><span id="sellMsg" class="note" style="margin-top:0"></span></div>
     </div>
-    <div class="note">Buyers will see your provider in the Buy tab and can purchase prompts that run on your key. You earn the full price per sale.</div>
   </div>
 </div>
 
 <script type="module">
+var TOKEN=localStorage.getItem('otto_token');
+if(!TOKEN){ location.href='/login'; }
 var algosdk=null; try{ algosdk=(await import('https://esm.sh/algosdk@3.2.0')).default; }catch(e){}
 var TESTNET_GENESIS='testnet-v1.0';
-var S={ info:null, quote:null, algod:null, address:null, sellerId:null };
+var S={ info:null, quote:null, algod:null, address:null, sellerId:null, user:null };
 function el(id){ return document.getElementById(id); }
 function u8ToB64(u8){ var s=''; for(var i=0;i<u8.length;i++) s+=String.fromCharCode(u8[i]); return btoa(s); }
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function authH(extra){ var h={ 'Authorization':'Bearer '+TOKEN }; if(extra) for(var k in extra) h[k]=extra[k]; return h; }
 
 async function boot(){
+  var me=await fetch('/api/auth/me',{headers:authH()}).then(function(r){ return r.ok?r.json():null; }).catch(function(){return null;});
+  if(!me){ localStorage.removeItem('otto_token'); location.href='/login'; return; }
+  S.user=me.user;
+  el('roleChip').className='rolechip '+S.user.role;
+  el('roleChip').textContent=(S.user.role==='seller'?'● Seller · ':'● Buyer · ')+S.user.email;
   try{ S.info=await fetch('/api/live/info').then(function(r){return r.json();}); }catch(e){}
   if(algosdk && S.info) S.algod=new algosdk.Algodv2('', S.info.algodServer, S.info.algodPort);
-  await loadProviders();
+  if(S.user.role==='seller'){ el('viewSeller').className='view on'; await loadMine(); }
+  else { el('viewBuyer').className='view on'; await loadProviders(); }
 }
+
+// ── Buyer ────────────────────────────────────────────────────────────────────
 async function loadProviders(sel){
-  var data=await fetch('/api/prompt/sellers').then(function(r){return r.json();}).catch(function(){return {sellers:[]};});
+  var data=await fetch('/api/prompt/sellers',{headers:authH()}).then(function(r){return r.json();}).catch(function(){return {sellers:[]};});
   var list=data.sellers||[];
   if(!S.sellerId && list[0]) S.sellerId=list[0].id;
   if(sel) S.sellerId=sel;
   el('providers').innerHTML=list.map(function(p){
     var init=(p.name||'?').replace(/[^A-Za-z ]/g,'').split(' ').map(function(w){return w[0];}).join('').slice(0,2).toUpperCase()||'AI';
-    return '<div class="prov'+(p.id===S.sellerId?' sel':'')+'" data-id="'+p.id+'">'
+    return '<div class="prov buy'+(p.id===S.sellerId?' sel':'')+'" data-id="'+p.id+'">'
       +'<div class="radio"></div><div class="provAv">'+init+'</div>'
       +'<div style="min-width:0"><div class="provName">'+esc(p.name)+(p.house?' <span style="font-size:9px;color:var(--dim)">· house</span>':'')+'</div>'
       +'<div class="provMeta">'+esc(p.model)+' · '+p.sold+' sold · $'+Number(p.earnedUsdc).toFixed(3)+' earned</div></div>'
       +'<div class="provRate">$'+Number(p.baseUsdc).toFixed(3)+' base<small>+ $'+Number(p.perTokenUsdc).toFixed(5)+'/token</small></div></div>';
   }).join('');
-  var cards=document.querySelectorAll('.prov');
+  var cards=document.querySelectorAll('#providers .prov');
   for(var i=0;i<cards.length;i++) cards[i].onclick=function(){ S.sellerId=this.getAttribute('data-id'); loadProviders(S.sellerId); };
 }
-function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-
 async function getQuote(){
   var prompt=el('prompt').value.trim(); if(!prompt){ el('prompt').focus(); return; }
   var btn=el('quoteBtn'); btn.disabled=true; btn.textContent='Running the model…';
   el('result').style.display='none'; el('quote').style.display='none';
   try{
-    var q=await fetch('/api/prompt/quote',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({prompt:prompt, sellerId:S.sellerId})}).then(function(r){return r.json();});
+    var q=await fetch('/api/prompt/quote',{method:'POST',headers:authH({'content-type':'application/json'}),body:JSON.stringify({prompt:prompt, sellerId:S.sellerId})}).then(function(r){return r.json();});
     if(q.error) throw new Error(q.detail||q.error);
     S.quote=q; renderQuote(q);
   }catch(e){ alert('Quote failed: '+String(e)); }
@@ -186,13 +205,12 @@ function renderQuote(q){
   el('qPrice').textContent='$'+Number(q.priceUsdc).toFixed(4);
   el('qBreak').textContent='base $'+Number(q.baseUsdc).toFixed(3)+'  +  '+q.outputTokens+' × $'+Number(q.perTokenUsdc).toFixed(5)+'/token';
   el('qPreview').textContent=q.preview;
-  el('quote').style.display='block';
-  el('quote').scrollIntoView({behavior:'smooth',block:'center'});
+  el('quote').style.display='block'; el('quote').scrollIntoView({behavior:'smooth',block:'center'});
 }
 async function payDemo(){
   if(!S.quote) return; var btn=el('demoBtn'); btn.disabled=true; btn.textContent='Settling on Algorand…';
   try{
-    var r=await fetch('/api/prompt/claim-demo',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jobId:S.quote.jobId})}).then(function(x){return x.json();});
+    var r=await fetch('/api/prompt/claim-demo',{method:'POST',headers:authH({'content-type':'application/json'}),body:JSON.stringify({jobId:S.quote.jobId})}).then(function(x){return x.json();});
     if(!r.ok) throw new Error(r.detail||'failed'); reveal(r);
   }catch(e){ alert('Payment failed: '+String(e)); }
   finally{ btn.disabled=false; btn.textContent='Buy with Otto (demo)'; }
@@ -218,7 +236,7 @@ async function payWallet(kind){
     var txn=algosdk.makeAssetTransferTxnWithSuggestedParamsFromObject({ sender:S.address, receiver:req.payTo, amount:req.amountMicroUsdc, assetIndex:Number(req.asset), suggestedParams:sp, note:new TextEncoder().encode('x402:'+req.paymentId) });
     var signedB64=await w.signB64(txn); btn.textContent='Settling…';
     var payload={ x402Version:1, paymentId:req.paymentId, nonce:req.nonce, from:S.address, amount:req.maxAmountRequired, amountMicroUsdc:req.amountMicroUsdc, authorizedAt:new Date().toISOString(), network:req.network, asset:req.asset, payTo:req.payTo, signedTxnB64:signedB64 };
-    var r=await fetch('/api/prompt/claim',{method:'POST',headers:{'content-type':'application/json','X-PAYMENT':btoa(JSON.stringify(payload))},body:'{}'}).then(function(x){return x.json();});
+    var r=await fetch('/api/prompt/claim',{method:'POST',headers:authH({'content-type':'application/json','X-PAYMENT':btoa(JSON.stringify(payload))}),body:'{}'}).then(function(x){return x.json();});
     if(!r.ok) throw new Error(r.detail||r.error||'failed'); reveal(r);
   }catch(e){ alert('Wallet payment failed: '+String(e)); }
   finally{ btn.disabled=false; btn.textContent=label; }
@@ -227,31 +245,45 @@ function reveal(r){
   el('quote').style.display='none';
   el('aAnswer').textContent=r.answer;
   el('aMeta').innerHTML='Paid $'+Number(r.priceUsdc).toFixed(4)+' to '+esc(r.seller)+' · '+esc(r.model)+' · '+r.outputTokens+' output tokens · '+(r.explorerUrl?'<a href="'+r.explorerUrl+'" target="_blank">tx '+String(r.txId).slice(0,12)+'…</a>':('tx '+r.txId));
-  el('result').style.display='block';
-  el('result').scrollIntoView({behavior:'smooth',block:'center'});
+  el('result').style.display='block'; el('result').scrollIntoView({behavior:'smooth',block:'center'});
   loadProviders(S.sellerId);
+}
+
+// ── Seller ───────────────────────────────────────────────────────────────────
+async function loadMine(){
+  var data=await fetch('/api/prompt/sellers',{headers:authH()}).then(function(r){return r.json();}).catch(function(){return {sellers:[]};});
+  var mine=(data.sellers||[]).filter(function(p){ return p.ownerEmail===S.user.email; });
+  var sold=0, earned=0; for(var i=0;i<mine.length;i++){ sold+=mine[i].sold; earned+=Number(mine[i].earnedUsdc); }
+  el('sCount').textContent=mine.length; el('sSold').textContent=sold; el('sEarned').textContent='$'+earned.toFixed(2);
+  el('myProviders').innerHTML = mine.length ? '<div class="plabel">YOUR PROVIDERS</div><div class="providers">'+mine.map(function(p){
+    var init=(p.name||'?').replace(/[^A-Za-z ]/g,'').split(' ').map(function(w){return w[0];}).join('').slice(0,2).toUpperCase()||'AI';
+    return '<div class="prov"><div class="provAv">'+init+'</div><div style="min-width:0"><div class="provName">'+esc(p.name)+'</div>'
+      +'<div class="provMeta">'+esc(p.model)+' · live</div></div>'
+      +'<div class="provRate">'+p.sold+' sold<small>$'+Number(p.earnedUsdc).toFixed(3)+' earned</small></div></div>';
+  }).join('')+'</div>' : '';
 }
 async function listProvider(){
   var body={ name:el('sName').value.trim(), provider:el('sProvider').value, apiKey:el('sKey').value.trim(),
     model:el('sModel').value.trim(), payoutAddress:el('sAddr').value.trim(),
     baseUsdc:parseFloat(el('sBase').value), perTokenUsdc:parseFloat(el('sPer').value) };
-  if(!body.name||!body.apiKey||!body.model){ el('sellMsg').textContent='Name, key and model are required.'; return; }
+  if(!body.apiKey||!body.model){ el('sellMsg').textContent='API key and model are required.'; return; }
   var btn=el('listBtn'); btn.disabled=true; btn.textContent='Listing…';
   try{
-    var r=await fetch('/api/prompt/sellers',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)}).then(function(x){return x.json();});
+    var r=await fetch('/api/prompt/sellers',{method:'POST',headers:authH({'content-type':'application/json'}),body:JSON.stringify(body)}).then(function(x){return x.json();});
     if(r.error) throw new Error(r.error);
-    el('sKey').value=''; el('sellMsg').innerHTML='<span class="ok">✓ Listed!</span> Switching to Buy…';
-    await loadProviders(r.seller.id);
-    setTimeout(function(){ setTab('buy'); }, 700);
+    el('sKey').value=''; el('sName').value=''; el('sModel').value='';
+    el('sellMsg').innerHTML='<span class="ok">✓ Listed! Buyers can now purchase from you.</span>';
+    await loadMine();
   }catch(e){ el('sellMsg').textContent='Failed: '+String(e); }
   finally{ btn.disabled=false; btn.textContent='List my provider'; }
 }
-function setTab(which){
-  el('tabBuy').className='tab'+(which==='buy'?' on':''); el('tabSell').className='tab'+(which==='sell'?' on':'');
-  el('viewBuy').className='view'+(which==='buy'?' on':''); el('viewSell').className='view'+(which==='sell'?' on':'');
+
+async function logout(){
+  try{ await fetch('/api/auth/logout',{method:'POST',headers:authH()}); }catch(e){}
+  localStorage.removeItem('otto_token'); localStorage.removeItem('otto_user'); location.href='/login';
 }
-el('tabBuy').onclick=function(){ setTab('buy'); };
-el('tabSell').onclick=function(){ setTab('sell'); };
+
+el('logout').onclick=logout;
 el('quoteBtn').onclick=getQuote;
 el('demoBtn').onclick=payDemo;
 el('peraBtn').onclick=function(){ payWallet('pera'); };
