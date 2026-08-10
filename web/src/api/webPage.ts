@@ -1214,15 +1214,19 @@ document.getElementById('budgetInput').addEventListener('input', function(){
 function fmtAddr(a){ return a ? (a.slice(0,5)+'…'+a.slice(-4)) : '—'; }
 function connectWallet(){
   state.walletConnected = true;
+  state.connTouched = Date.now();
   try { localStorage.setItem('ottoWalletConnected','1'); } catch(_){}
-  pollLiveStatus();
+  // Write to the server FIRST, then poll — otherwise the poll answers with the
+  // old state and flips the chip straight back.
+  fetch('/api/live/connect',{method:'POST'}).catch(function(){}).finally(function(){ pollLiveStatus(); });
   renderWallet();
-  toast('✓ Wallet connected — Otto\\u2019s TestNet account is live');
+  toast('✓ Wallet connected — synced to every device');
 }
 function disconnectWallet(){
   state.walletConnected = false; state.popOpen = false;
+  state.connTouched = Date.now();
   try { localStorage.removeItem('ottoWalletConnected'); } catch(_){}
-  fetch('/api/live/disconnect',{method:'POST'}).catch(function(){});
+  fetch('/api/live/disconnect',{method:'POST'}).catch(function(){}).finally(function(){ pollLiveStatus(); });
   document.getElementById('walletPop').style.display='none';
   renderWallet();
 }
@@ -1294,7 +1298,10 @@ function togglePop(){
 function pollLiveStatus(){
   fetch('/api/live/status').then(function(r){return r.json();}).then(function(s){
     state.liveStatus = s;
-    if (typeof s.connected === 'boolean' && s.connected !== state.walletConnected){
+    // Server state wins — except for ~5s after a local connect/disconnect, so
+    // an in-flight poll can't clobber the user's click.
+    var settled = Date.now() - (state.connTouched||0) > 5000;
+    if (settled && typeof s.connected === 'boolean' && s.connected !== state.walletConnected){
       state.walletConnected = s.connected;
       try { s.connected ? localStorage.setItem('ottoWalletConnected','1') : localStorage.removeItem('ottoWalletConnected'); } catch(_){}
     }

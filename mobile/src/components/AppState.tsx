@@ -58,13 +58,17 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     timer.current = setTimeout(() => setToastText(""), 2600);
   }, []);
 
+  const connTouched = useRef(0);
+
   const refreshWallet = useCallback(async () => {
     try {
       const [info, status] = await Promise.all([otto.liveInfo(), otto.liveStatus()]);
       setLiveInfo(info);
       setLiveStatus(status);
-      // The server owns the connection — connect on web and this flips too.
-      if (typeof status.connected === "boolean") setWalletConnected(status.connected);
+      // Server owns the connection (web ↔ mobile sync) — but never clobber a
+      // local connect/disconnect made in the last few seconds.
+      if (typeof status.connected === "boolean" && Date.now() - connTouched.current > 5000)
+        setWalletConnected(status.connected);
     } catch {
       /* server unreachable — leave the last known snapshot */
     }
@@ -72,14 +76,16 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
   const connectWallet = useCallback(async () => {
     setWalletConnected(true);
-    otto.connectLive().catch(() => {});
+    connTouched.current = Date.now();
+    await otto.connectLive().catch(() => {});
     await refreshWallet();
     toast("✓ Wallet connected — synced to every device");
   }, [refreshWallet, toast]);
 
   const disconnectWallet = useCallback(() => {
     setWalletConnected(false);
-    otto.disconnectLive().catch(() => {});
+    connTouched.current = Date.now();
+    void otto.disconnectLive().catch(() => {});
   }, []);
 
   // Always poll: keeps balances fresh AND syncs the connection across devices.
