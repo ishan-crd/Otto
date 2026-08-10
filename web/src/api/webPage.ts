@@ -35,7 +35,7 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
   .g1{position:absolute;top:-260px;left:44%;width:900px;height:520px;border-radius:50%;background:radial-gradient(ellipse at center,rgba(150,140,225,0.20),rgba(10,10,11,0) 68%);filter:blur(30px);pointer-events:none}
   .g2{position:absolute;bottom:-320px;left:-140px;width:680px;height:520px;border-radius:50%;background:radial-gradient(ellipse at center,rgba(120,130,190,0.10),rgba(10,10,11,0) 70%);filter:blur(40px);pointer-events:none}
 
-  aside.side{width:236px;flex:none;padding:26px 18px;border-right:1px solid rgba(255,255,255,0.055);background:rgba(255,255,255,0.014);backdrop-filter:blur(24px);display:flex;flex-direction:column;gap:26px;position:relative;z-index:2}
+  aside.side{width:236px;flex:none;padding:26px 18px;border-right:1px solid rgba(255,255,255,0.055);background:rgba(255,255,255,0.014);backdrop-filter:blur(24px);display:flex;flex-direction:column;gap:26px;position:relative;z-index:2;transition:width .22s ease,padding .22s ease}
   .logo{display:flex;align-items:center;gap:11px;padding:0 8px}
   .logoMark{width:34px;height:34px;border-radius:11px;background:linear-gradient(145deg,#E7E3FF,#8F87C9 42%,#3A3752 78%,#D9D4F5);display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(140,130,220,0.28)}
   .logoMark div{width:11px;height:11px;border-radius:50%;border:2.5px solid #131320}
@@ -109,6 +109,21 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
   .bcustom{display:flex;align-items:center;gap:4px;height:34px;padding:0 11px;border-radius:11px;border:1px solid rgba(255,255,255,0.08);background:rgba(10,10,11,0.5);color:rgba(242,241,246,0.5);font-family:var(--mono);font-size:12.5px}
   .bcustom input{width:52px;background:transparent;border:none;outline:none;color:#F2F1F6;font-family:var(--mono);font-size:12.5px;font-variant-numeric:tabular-nums}
   .bHint{font-size:11px;color:rgba(242,241,246,0.32)}
+
+  /* Collapsible sidebar */
+  .navIco{width:22px;height:22px;flex:none;display:flex;align-items:center;justify-content:center;color:inherit}
+  .navIco svg{width:17px;height:17px;display:block}
+  .railToggle{position:absolute;top:24px;right:-13px;z-index:6;width:26px;height:26px;border-radius:50%;border:1px solid rgba(255,255,255,0.11);background:rgba(22,22,27,0.96);color:rgba(242,241,246,0.7);display:flex;align-items:center;justify-content:center;font-size:14px;line-height:1;box-shadow:0 6px 16px -6px rgba(0,0,0,0.85);transition:transform .18s ease,color .18s ease,border-color .18s ease}
+  .railToggle:hover{color:#F2F1F6;border-color:rgba(169,160,255,0.45);transform:scale(1.08)}
+  aside.side.mini{width:74px;padding:26px 12px;gap:20px}
+  aside.side.mini .logo{justify-content:center;padding:0}
+  aside.side.mini .logoText{display:none}
+  aside.side.mini .navHead{display:none}
+  aside.side.mini .navItem{justify-content:center;padding:11px 0;gap:0}
+  aside.side.mini .navLabel,aside.side.mini .navBadge{display:none}
+  aside.side.mini .autoCard{display:none}
+  aside.side.mini .userRow{justify-content:center;padding:9px 0}
+  aside.side.mini .userText{display:none}
 </style>
 </head>
 <body>
@@ -116,9 +131,10 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
   <div class="g1"></div><div class="g2"></div>
 
   <aside class="side">
+    <button class="railToggle" id="sideToggle" title="Collapse sidebar">‹</button>
     <div class="logo">
       <div class="logoMark"><div></div></div>
-      <div><div class="logoName">Otto</div><div class="logoSub">AUTONOMOUS AGENT</div></div>
+      <div class="logoText"><div class="logoName">Otto</div><div class="logoSub">AUTONOMOUS AGENT</div></div>
     </div>
     <div>
       <div class="navHead">WORKSPACE</div>
@@ -133,7 +149,7 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
       </div>
       <div class="userRow">
         <div class="userAv">MK</div>
-        <div style="line-height:1.25"><div style="font-size:12.5px;font-weight:500">Mira Kovač</div><div style="font-size:10.5px;color:rgba(242,241,246,0.34)">Principal</div></div>
+        <div class="userText" style="line-height:1.25"><div style="font-size:12.5px;font-weight:500">Mira Kovač</div><div style="font-size:10.5px;color:rgba(242,241,246,0.34)">Principal</div></div>
       </div>
     </div>
   </aside>
@@ -383,8 +399,16 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
 <script>
 var state = { page:'market', tab:'hiring', tick:0, filter:'all', rules:[true,true,false,true,true],
   agents:[], task:null, taskTimer:null, feedLive:false, counts:null, policy:null, liveInfo:null, ledgerRows:[],
-  budget:2, walletConnected:false, liveStatus:null, popOpen:false, statusTimer:null };
+  budget:2, walletConnected:false, liveStatus:null, popOpen:false, statusTimer:null, sidebarMini:false };
 var ACCOUNT_EXPLORER = 'https://lora.algokit.io/testnet/account/';
+var SVG = 'width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"';
+var ICONS = {
+  market:'<svg '+SVG+'><rect x="3" y="3" width="7" height="7" rx="1.6"/><rect x="14" y="3" width="7" height="7" rx="1.6"/><rect x="3" y="14" width="7" height="7" rx="1.6"/><rect x="14" y="14" width="7" height="7" rx="1.6"/></svg>',
+  task:'<svg '+SVG+'><polyline points="3 12 7 12 10 4 14 20 17 12 21 12"/></svg>',
+  wallet:'<svg '+SVG+'><rect x="3" y="6" width="18" height="13" rx="2.4"/><path d="M3 10h18"/><circle cx="16.5" cy="14.5" r="1.1" fill="currentColor" stroke="none"/></svg>',
+  receipts:'<svg '+SVG+'><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6"/><path d="M9 12h5"/></svg>',
+  rules:'<svg '+SVG+'><path d="M12 3l7 3v5c0 4.6-3.1 7.8-7 9-3.9-1.2-7-4.4-7-9V6z"/><path d="M9.5 12l1.8 1.8L15 10"/></svg>'
+};
 var NAV = [ {id:'market',label:'Marketplace',count:'18'}, {id:'task',label:'Active task',count:'1'}, {id:'wallet',label:'Wallet',count:''}, {id:'receipts',label:'Receipts',count:'204'}, {id:'rules',label:'Rules & limits',count:''} ];
 var TITLES = { market:'Marketplace', task:'Active task', wallet:'Wallet', receipts:'Receipts', rules:'Rules & limits' };
 var SUBS = {
@@ -484,7 +508,7 @@ function renderNav(){
   document.getElementById('nav').innerHTML = NAV.map(function(n){
     var on = state.page===n.id;
     var count = state.counts && state.counts[n.id]!=null ? state.counts[n.id] : n.count;
-    return '<div class="navItem'+(on?' on':'')+'" data-page="'+n.id+'"><span class="navDot"></span><span>'+n.label+'</span><span class="navBadge">'+count+'</span></div>';
+    return '<div class="navItem'+(on?' on':'')+'" data-page="'+n.id+'" title="'+n.label+'"><span class="navIco">'+(ICONS[n.id]||'')+'</span><span class="navLabel">'+n.label+'</span><span class="navBadge">'+count+'</span></div>';
   }).join('');
 }
 function renderMktChart(real){
@@ -1011,12 +1035,24 @@ function pollLiveStatus(){
 document.getElementById('walletBtn').addEventListener('click', connectWallet);
 document.getElementById('walletChip').addEventListener('click', togglePop);
 
+// ── Collapsible sidebar (icons-only when collapsed) ──────────────────────────
+function setSidebar(mini){
+  state.sidebarMini = mini;
+  document.querySelector('aside.side').classList.toggle('mini', mini);
+  var tog = document.getElementById('sideToggle');
+  tog.textContent = mini ? '›' : '‹';
+  tog.title = mini ? 'Expand sidebar' : 'Collapse sidebar';
+  try { localStorage.setItem('ottoSidebarMini', mini?'1':'0'); } catch(_){}
+}
+document.getElementById('sideToggle').addEventListener('click', function(){ setSidebar(!state.sidebarMini); });
+
 document.getElementById('runBtn').addEventListener('click', runTask);
 document.getElementById('goalInput').addEventListener('keydown', function(e){ if(e.key==='Enter') runTask(); });
 document.getElementById('earnBtn').addEventListener('click', simulateSale);
 
 renderNav(); renderMktChart(); renderGigs(); renderFeed(); renderSteps(); renderTaskReceipts(); renderRails(); renderLedger(); renderRules();
 try { state.walletConnected = localStorage.getItem('ottoWalletConnected')==='1'; } catch(_){}
+try { if (localStorage.getItem('ottoSidebarMini')==='1') setSidebar(true); } catch(_){}
 setBudget(2, true); renderWallet();
 setInterval(function(){ state.tick++; if(!state.feedLive) renderFeed(); }, 3800);
 setInterval(function(){ pollWallet(); pollLedger(); pollStats(); }, 4000);
