@@ -17,10 +17,10 @@ import { c, font } from "../theme";
 export function SheetScreen({ children }: { children: ReactNode }) {
   const insets = useSafeAreaInsets();
   const background = Platform.OS === "ios" ? "transparent" : c.surface;
+  // Keep a small gap above the home indicator but sit ~30px tighter overall.
+  const paddingBottom = Math.max(12, insets.bottom - 8);
   return (
-    <View style={[styles.root, { backgroundColor: background, paddingBottom: 22 + insets.bottom }]}>
-      {children}
-    </View>
+    <View style={[styles.root, { backgroundColor: background, paddingBottom }]}>{children}</View>
   );
 }
 
