@@ -1,8 +1,6 @@
 /**
- * The Buy-a-Prompt marketplace, served at /prompt — login-gated with two role
- * experiences:
- *   - BUYER: pick a provider, get an output-priced quote, pay over x402 → answer.
- *   - SELLER: connect your Claude / OpenRouter key, list it, watch it earn.
+ * Buy-a-Prompt page, served at /prompt. Submit a prompt → get a quote priced by
+ * the actual answer size → pay over x402 on Algorand → the answer unlocks.
  */
 export const PROMPT_PAGE_HTML = /* html */ `<!DOCTYPE html>
 <html lang="en">
@@ -19,188 +17,121 @@ export const PROMPT_PAGE_HTML = /* html */ `<!DOCTYPE html>
   *{box-sizing:border-box}
   html,body{margin:0;background:var(--bg);color:var(--tx);font-family:'Space Grotesk',system-ui,sans-serif}
   a{color:var(--lav)} .mono{font-family:var(--mono)}
-  .wrap{max-width:780px;margin:0 auto;padding:26px 22px 90px}
-  .top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .wrap{max-width:760px;margin:0 auto;padding:40px 22px 80px}
+  .top{display:flex;align-items:center;justify-content:space-between;gap:14px}
   .back{font-size:13px;color:var(--mut);text-decoration:none}
-  .acct{display:flex;align-items:center;gap:10px}
-  .rolechip{display:inline-flex;align-items:center;gap:7px;font-size:11.5px;border-radius:99px;padding:6px 12px;border:1px solid var(--bd);background:var(--card)}
-  .rolechip.buyer{color:var(--lav2);border-color:rgba(169,160,255,0.28);background:rgba(169,160,255,0.08)}
-  .rolechip.seller{color:var(--grn2);border-color:rgba(143,227,180,0.24);background:rgba(143,227,180,0.07)}
-  .logout{font-size:12px;color:var(--mut);background:none;border:1px solid var(--bd);border-radius:10px;padding:7px 12px;cursor:pointer}
-  .logout:hover{color:var(--tx)}
-  h1{font-size:clamp(28px,5vw,42px);letter-spacing:-0.03em;line-height:1.05;margin:22px 0 8px;
+  .chip{display:inline-flex;align-items:center;gap:7px;font-size:11.5px;color:var(--mut);border:1px solid var(--bd);background:var(--card);border-radius:99px;padding:6px 12px}
+  .dot{width:6px;height:6px;border-radius:50%;background:var(--grn)}
+  h1{font-size:clamp(30px,5vw,46px);letter-spacing:-0.03em;line-height:1.05;margin:26px 0 10px;
     background:linear-gradient(180deg,#fff,#C7C1F0 80%,#9B93D6);-webkit-background-clip:text;background-clip:text;color:transparent}
-  .lead{font-size:14.5px;color:var(--mut);line-height:1.55;max-width:640px}
-  .card{border:1px solid var(--bd);background:var(--card);border-radius:20px;padding:20px;margin-top:18px}
-  label{font-size:11px;letter-spacing:0.07em;color:var(--dim);display:block;margin-bottom:7px}
-  textarea,input,select{width:100%;background:rgba(10,10,11,0.5);border:1px solid var(--bd);border-radius:12px;color:var(--tx);font-family:inherit;font-size:14.5px;padding:12px 14px;outline:none}
-  textarea{min-height:110px;resize:vertical;font-size:15px}
-  input:focus,textarea:focus,select:focus{border-color:rgba(169,160,255,0.5)}
-  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .lead{font-size:15px;color:var(--mut);line-height:1.55;max-width:620px}
+  .steps{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
+  .step{flex:1;min-width:170px;border:1px solid var(--bd);background:var(--card);border-radius:14px;padding:13px 15px;font-size:12.5px;color:var(--mut)}
+  .step b{color:var(--tx);display:block;font-size:12.5px;margin-bottom:3px}
+  .card{border:1px solid var(--bd);background:var(--card);border-radius:22px;padding:22px;margin-top:22px}
+  label{font-size:11px;letter-spacing:0.08em;color:var(--dim);display:block;margin-bottom:8px}
+  textarea{width:100%;min-height:120px;resize:vertical;background:rgba(10,10,11,0.5);border:1px solid var(--bd);border-radius:14px;
+    color:var(--tx);font-family:inherit;font-size:15px;padding:14px 16px;outline:none}
+  textarea:focus,select:focus{border-color:rgba(169,160,255,0.5)}
   .row{display:flex;gap:10px;align-items:center;margin-top:14px;flex-wrap:wrap}
-  .btn{height:46px;padding:0 20px;border-radius:12px;border:1px solid var(--bd);background:rgba(255,255,255,0.05);color:var(--tx);font-family:inherit;font-size:13.5px;cursor:pointer}
+  select{height:46px;background:rgba(10,10,11,0.5);border:1px solid var(--bd);border-radius:13px;color:var(--tx);font-family:inherit;font-size:13px;padding:0 12px;outline:none}
+  .btn{height:46px;padding:0 20px;border-radius:13px;border:1px solid var(--bd);background:rgba(255,255,255,0.05);color:var(--tx);font-family:inherit;font-size:13.5px;cursor:pointer}
   .btn:hover{background:rgba(255,255,255,0.09)}
   .btn.pri{border-color:rgba(211,206,255,0.4);background:linear-gradient(160deg,#CFC9FF,#9990E8);color:#14121F;font-weight:600}
   .btn:disabled{opacity:0.6;cursor:default}
-  .plabel{font-size:10px;letter-spacing:0.08em;color:var(--dim);margin-bottom:9px}
-  .providers{display:flex;flex-direction:column;gap:9px}
-  .prov{display:flex;align-items:center;gap:13px;border:1px solid var(--bd);background:rgba(255,255,255,0.028);border-radius:15px;padding:13px 15px}
-  .prov.buy{cursor:pointer}
-  .prov.sel{border-color:rgba(169,160,255,0.5);background:rgba(169,160,255,0.08)}
-  .provAv{width:38px;height:38px;flex:none;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:#C9C3FF;background:linear-gradient(150deg,#33304A,#16161F);border:1px solid var(--bd)}
-  .provName{font-size:14px;font-weight:600}
-  .provMeta{font-size:11.5px;color:var(--mut);margin-top:3px}
-  .provRate{margin-left:auto;text-align:right;font-family:var(--mono);font-size:12px;color:var(--lav2)}
-  .provRate small{display:block;color:var(--dim);font-size:10px;margin-top:3px}
-  .radio{width:18px;height:18px;border-radius:50%;border:2px solid var(--bd);flex:none}
-  .prov.sel .radio{border-color:var(--lav);background:radial-gradient(circle at center,var(--lav) 40%,transparent 46%)}
-  .quote{display:none;border:1px solid rgba(169,160,255,0.28);background:linear-gradient(160deg,rgba(169,160,255,0.1),rgba(255,255,255,0.02));border-radius:20px;padding:20px;margin-top:16px}
+  .quote{display:none;border:1px solid rgba(169,160,255,0.28);background:linear-gradient(160deg,rgba(169,160,255,0.1),rgba(255,255,255,0.02));border-radius:22px;padding:22px;margin-top:18px}
   .qhead{display:flex;align-items:baseline;justify-content:space-between;gap:14px;flex-wrap:wrap}
   .qprice{font-family:var(--mono);font-size:34px;letter-spacing:-0.02em}
   .qtok{font-size:12.5px;color:var(--mut)}
   .qbreak{font-size:11.5px;color:var(--dim);margin-top:4px}
-  .preview{margin-top:14px;padding:14px 16px;border:1px solid var(--bd);border-radius:13px;background:rgba(10,10,11,0.4);font-size:13.5px;line-height:1.5;color:var(--mut);position:relative;max-height:74px;overflow:hidden}
-  .preview:after{content:'';position:absolute;left:0;right:0;bottom:0;height:38px;background:linear-gradient(180deg,transparent,rgba(10,10,11,0.9))}
-  .pays{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}
-  .result{display:none;border:1px solid rgba(143,227,180,0.28);background:linear-gradient(160deg,rgba(143,227,180,0.08),rgba(255,255,255,0.02));border-radius:20px;padding:20px;margin-top:16px}
+  .preview{margin-top:16px;padding:14px 16px;border:1px solid var(--bd);border-radius:14px;background:rgba(10,10,11,0.4);
+    font-size:13.5px;line-height:1.5;color:var(--mut);position:relative;max-height:78px;overflow:hidden}
+  .preview:after{content:'';position:absolute;left:0;right:0;bottom:0;height:40px;background:linear-gradient(180deg,transparent,rgba(10,10,11,0.9))}
+  .plabel{font-size:10px;letter-spacing:0.08em;color:var(--dim);margin-bottom:7px}
+  .pays{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap}
+  .result{display:none;border:1px solid rgba(143,227,180,0.28);background:linear-gradient(160deg,rgba(143,227,180,0.08),rgba(255,255,255,0.02));border-radius:22px;padding:22px;margin-top:18px}
   .rhead{display:flex;align-items:center;gap:9px;font-size:14px;font-weight:600;color:var(--grn2)}
   .answer{margin-top:14px;white-space:pre-wrap;font-size:14.5px;line-height:1.6}
   .rmeta{margin-top:14px;padding-top:14px;border-top:1px solid var(--bd);font-size:12px;color:var(--mut)}
-  .note{font-size:12px;color:var(--dim);margin-top:14px;line-height:1.6}
-  .ok{color:var(--grn2)}
-  .stats{display:flex;gap:12px;margin-top:16px;flex-wrap:wrap}
-  .stat{flex:1;min-width:130px;border:1px solid var(--bd);background:rgba(255,255,255,0.03);border-radius:15px;padding:14px 16px}
-  .stat .k{font-size:10px;letter-spacing:0.06em;color:var(--dim)}
-  .stat .v{font-family:var(--mono);font-size:22px;margin-top:5px}
-  .view{display:none} .view.on{display:block}
+  .note{font-size:12px;color:var(--dim);margin-top:16px;line-height:1.6}
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="top">
     <a class="back" href="/">‹ Otto dashboard</a>
-    <div class="acct">
-      <span class="rolechip" id="roleChip">…</span>
-      <button class="logout" id="logout">Log out</button>
+    <span class="chip"><span class="dot"></span> USDC · Algorand TestNet</span>
+  </div>
+
+  <h1>Buy a prompt.</h1>
+  <div class="lead">Out of AI credits? Send Otto a prompt. It runs on a real model, prices the job by the <b>actual output size</b>, and reveals the answer once you pay — a real USDC micropayment over x402 on Algorand.</div>
+
+  <div class="steps">
+    <div class="step"><b>1 · Submit</b>Type a prompt, pick a model.</div>
+    <div class="step"><b>2 · Priced by output</b>base + per-token × tokens generated.</div>
+    <div class="step"><b>3 · Pay → reveal</b>USDC on Algorand, then the full answer.</div>
+  </div>
+
+  <div class="card">
+    <label>YOUR PROMPT</label>
+    <textarea id="prompt" placeholder="e.g. Write a 6-line pitch for an AI that pays other AIs to do work."></textarea>
+    <div class="row">
+      <select id="model"></select>
+      <button class="btn pri" id="quoteBtn">Get quote &amp; run</button>
     </div>
   </div>
 
-  <!-- BUYER -->
-  <div class="view" id="viewBuyer">
-    <h1>Buy a prompt.</h1>
-    <div class="lead">Out of AI credits? Buy a single prompt from a provider. You get a quote priced by the <b>actual answer size</b>, and it unlocks once you pay — a real USDC micropayment over x402 on Algorand.</div>
-    <div class="card">
-      <div class="plabel">CHOOSE A PROVIDER</div>
-      <div class="providers" id="providers"></div>
-      <div style="margin-top:16px"><label>YOUR PROMPT</label>
-        <textarea id="prompt" placeholder="e.g. Write a 6-line pitch for an AI that pays other AIs to do work."></textarea></div>
-      <div class="row"><button class="btn pri" id="quoteBtn">Get quote &amp; buy</button></div>
+  <div class="quote" id="quote">
+    <div class="qhead">
+      <div><div class="plabel">PRICE FOR THIS ANSWER</div><div class="qprice" id="qPrice">$0.00</div><div class="qbreak" id="qBreak"></div></div>
+      <div style="text-align:right"><div class="qtok mono" id="qTokens"></div><div class="qtok" id="qModel" style="margin-top:4px;color:var(--dim)"></div></div>
     </div>
-    <div class="quote" id="quote">
-      <div class="qhead">
-        <div><div class="plabel">PRICE FOR THIS ANSWER</div><div class="qprice" id="qPrice">$0.00</div><div class="qbreak" id="qBreak"></div></div>
-        <div style="text-align:right"><div class="qtok mono" id="qTokens"></div><div class="qtok" id="qModel" style="margin-top:4px;color:var(--dim)"></div></div>
-      </div>
-      <div class="plabel" style="margin-top:15px">PREVIEW (pay to unlock the full answer)</div>
-      <div class="preview" id="qPreview"></div>
-      <div class="pays">
-        <button class="btn pri" id="demoBtn">Buy with Otto (demo)</button>
-        <button class="btn" id="peraBtn">Pay with Pera</button>
-        <button class="btn" id="luteBtn">Pay with Lute</button>
-      </div>
-      <div class="note">“Otto (demo)” pays from Otto’s funded TestNet account — one click, real on-chain settlement. Pera / Lute pay from your wallet (needs test USDC + opt-in).</div>
+    <div class="plabel" style="margin-top:16px">PREVIEW (pay to unlock the full answer)</div>
+    <div class="preview" id="qPreview"></div>
+    <div class="pays">
+      <button class="btn pri" id="demoBtn">Pay with Otto (demo)</button>
+      <button class="btn" id="peraBtn">Pay with Pera</button>
+      <button class="btn" id="luteBtn">Pay with Lute</button>
     </div>
-    <div class="result" id="result">
-      <div class="rhead">✓ Paid — here’s your answer</div>
-      <div class="answer mono" id="aAnswer"></div>
-      <div class="rmeta" id="aMeta"></div>
-    </div>
+    <div class="note">“Otto (demo)” pays from Otto’s funded TestNet account — one click, real on-chain settlement. Pera / Lute pay from your wallet (needs test USDC + opt-in).</div>
   </div>
 
-  <!-- SELLER -->
-  <div class="view" id="viewSeller">
-    <h1>Sell your prompts.</h1>
-    <div class="lead">Connect your Claude / OpenRouter key and list it as a provider. Buyers’ prompts run on your key and you earn USDC per sale, settled on Algorand.</div>
-    <div class="stats">
-      <div class="stat"><div class="k">YOUR PROVIDERS</div><div class="v" id="sCount">0</div></div>
-      <div class="stat"><div class="k">PROMPTS SOLD</div><div class="v" id="sSold">0</div></div>
-      <div class="stat"><div class="k">EARNED (USDC)</div><div class="v" id="sEarned" style="color:var(--grn2)">$0.00</div></div>
-    </div>
-    <div id="myProviders" style="margin-top:16px"></div>
-    <div class="card">
-      <div class="plabel">CONNECT YOUR CLAUDE &amp; LIST IT</div>
-      <div class="note" style="margin-top:0;margin-bottom:16px">Your key runs buyers’ prompts on your account and earns you USDC per sale. It’s held in memory for this session only — never written to disk or returned.</div>
-      <div class="grid2">
-        <div><label>DISPLAY NAME</label><input id="sName" placeholder="e.g. Mira's Claude" /></div>
-        <div><label>PROVIDER</label><select id="sProvider"><option value="openrouter">OpenRouter</option><option value="anthropic">Anthropic (direct)</option></select></div>
-      </div>
-      <div style="margin-top:12px"><label>API KEY</label><input id="sKey" type="password" placeholder="sk-or-…  or  sk-ant-…" /></div>
-      <div class="grid2" style="margin-top:12px">
-        <div><label>MODEL ID</label><input id="sModel" placeholder="anthropic/claude-3.5-sonnet" /></div>
-        <div><label>PAYOUT ADDRESS (optional)</label><input id="sAddr" placeholder="Algorand address (blank = platform)" /></div>
-      </div>
-      <div class="grid2" style="margin-top:12px">
-        <div><label>BASE PRICE (USDC)</label><input id="sBase" type="number" step="0.001" value="0.003" /></div>
-        <div><label>PER OUTPUT TOKEN (USDC)</label><input id="sPer" type="number" step="0.00001" value="0.00004" /></div>
-      </div>
-      <div class="row"><button class="btn pri" id="listBtn">List my provider</button><span id="sellMsg" class="note" style="margin-top:0"></span></div>
-    </div>
+  <div class="result" id="result">
+    <div class="rhead">✓ Paid — here’s your answer</div>
+    <div class="answer mono" id="aAnswer"></div>
+    <div class="rmeta" id="aMeta"></div>
   </div>
 </div>
 
 <script type="module">
-var TOKEN=localStorage.getItem('otto_token');
-if(!TOKEN){ location.href='/login'; }
 var algosdk=null; try{ algosdk=(await import('https://esm.sh/algosdk@3.2.0')).default; }catch(e){}
 var TESTNET_GENESIS='testnet-v1.0';
-var S={ info:null, quote:null, algod:null, address:null, sellerId:null, user:null };
+var S={ info:null, quote:null, algod:null, address:null };
 function el(id){ return document.getElementById(id); }
 function u8ToB64(u8){ var s=''; for(var i=0;i<u8.length;i++) s+=String.fromCharCode(u8[i]); return btoa(s); }
-function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-function authH(extra){ var h={ 'Authorization':'Bearer '+TOKEN }; if(extra) for(var k in extra) h[k]=extra[k]; return h; }
 
 async function boot(){
-  var me=await fetch('/api/auth/me',{headers:authH()}).then(function(r){ return r.ok?r.json():null; }).catch(function(){return null;});
-  if(!me){ localStorage.removeItem('otto_token'); location.href='/login'; return; }
-  S.user=me.user;
-  el('roleChip').className='rolechip '+S.user.role;
-  el('roleChip').textContent=(S.user.role==='seller'?'● Seller · ':'● Buyer · ')+S.user.email;
   try{ S.info=await fetch('/api/live/info').then(function(r){return r.json();}); }catch(e){}
   if(algosdk && S.info) S.algod=new algosdk.Algodv2('', S.info.algodServer, S.info.algodPort);
-  if(S.user.role==='seller'){ el('viewSeller').className='view on'; await loadMine(); }
-  else { el('viewBuyer').className='view on'; await loadProviders(); }
-}
-
-// ── Buyer ────────────────────────────────────────────────────────────────────
-async function loadProviders(sel){
-  var data=await fetch('/api/prompt/sellers',{headers:authH()}).then(function(r){return r.json();}).catch(function(){return {sellers:[]};});
-  var list=data.sellers||[];
-  if(!S.sellerId && list[0]) S.sellerId=list[0].id;
-  if(sel) S.sellerId=sel;
-  el('providers').innerHTML=list.map(function(p){
-    var init=(p.name||'?').replace(/[^A-Za-z ]/g,'').split(' ').map(function(w){return w[0];}).join('').slice(0,2).toUpperCase()||'AI';
-    return '<div class="prov buy'+(p.id===S.sellerId?' sel':'')+'" data-id="'+p.id+'">'
-      +'<div class="radio"></div><div class="provAv">'+init+'</div>'
-      +'<div style="min-width:0"><div class="provName">'+esc(p.name)+(p.house?' <span style="font-size:9px;color:var(--dim)">· house</span>':'')+'</div>'
-      +'<div class="provMeta">'+esc(p.model)+' · '+p.sold+' sold · $'+Number(p.earnedUsdc).toFixed(3)+' earned</div></div>'
-      +'<div class="provRate">$'+Number(p.baseUsdc).toFixed(3)+' base<small>+ $'+Number(p.perTokenUsdc).toFixed(5)+'/token</small></div></div>';
-  }).join('');
-  var cards=document.querySelectorAll('#providers .prov');
-  for(var i=0;i<cards.length;i++) cards[i].onclick=function(){ S.sellerId=this.getAttribute('data-id'); loadProviders(S.sellerId); };
+  var models=[];
+  try{ var m=await fetch('/api/models').then(function(r){return r.json();}); models=(m.models||[]).filter(function(x){return x.id.indexOf('anthropic/')===0;}).slice(0,8); }catch(e){}
+  if(!models.length) models=[{id:'anthropic/claude-3.5-sonnet',name:'Claude 3.5 Sonnet'},{id:'anthropic/claude-3-haiku',name:'Claude 3 Haiku'}];
+  models.push({id:'openai/gpt-4o-mini',name:'GPT-4o mini (cheap)'});
+  el('model').innerHTML=models.map(function(x){ return '<option value="'+x.id+'">'+(x.name||x.id)+'</option>'; }).join('');
 }
 async function getQuote(){
   var prompt=el('prompt').value.trim(); if(!prompt){ el('prompt').focus(); return; }
   var btn=el('quoteBtn'); btn.disabled=true; btn.textContent='Running the model…';
   el('result').style.display='none'; el('quote').style.display='none';
   try{
-    var q=await fetch('/api/prompt/quote',{method:'POST',headers:authH({'content-type':'application/json'}),body:JSON.stringify({prompt:prompt, sellerId:S.sellerId})}).then(function(r){return r.json();});
+    var q=await fetch('/api/prompt/quote',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({prompt:prompt, model:el('model').value})}).then(function(r){return r.json();});
     if(q.error) throw new Error(q.detail||q.error);
     S.quote=q; renderQuote(q);
   }catch(e){ alert('Quote failed: '+String(e)); }
-  finally{ btn.disabled=false; btn.textContent='Get quote & buy'; }
+  finally{ btn.disabled=false; btn.textContent='Get quote & run'; }
 }
 function renderQuote(q){
-  el('qModel').textContent=q.seller+' · '+q.model;
+  el('qModel').textContent=q.model;
   el('qTokens').textContent=q.outputTokens+' output tokens · '+q.words+' words';
   el('qPrice').textContent='$'+Number(q.priceUsdc).toFixed(4);
   el('qBreak').textContent='base $'+Number(q.baseUsdc).toFixed(3)+'  +  '+q.outputTokens+' × $'+Number(q.perTokenUsdc).toFixed(5)+'/token';
@@ -210,10 +141,10 @@ function renderQuote(q){
 async function payDemo(){
   if(!S.quote) return; var btn=el('demoBtn'); btn.disabled=true; btn.textContent='Settling on Algorand…';
   try{
-    var r=await fetch('/api/prompt/claim-demo',{method:'POST',headers:authH({'content-type':'application/json'}),body:JSON.stringify({jobId:S.quote.jobId})}).then(function(x){return x.json();});
+    var r=await fetch('/api/prompt/claim-demo',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jobId:S.quote.jobId})}).then(function(x){return x.json();});
     if(!r.ok) throw new Error(r.detail||'failed'); reveal(r);
   }catch(e){ alert('Payment failed: '+String(e)); }
-  finally{ btn.disabled=false; btn.textContent='Buy with Otto (demo)'; }
+  finally{ btn.disabled=false; btn.textContent='Pay with Otto (demo)'; }
 }
 async function makeWallet(kind){
   if(kind==='lute'){
@@ -236,7 +167,7 @@ async function payWallet(kind){
     var txn=algosdk.makeAssetTransferTxnWithSuggestedParamsFromObject({ sender:S.address, receiver:req.payTo, amount:req.amountMicroUsdc, assetIndex:Number(req.asset), suggestedParams:sp, note:new TextEncoder().encode('x402:'+req.paymentId) });
     var signedB64=await w.signB64(txn); btn.textContent='Settling…';
     var payload={ x402Version:1, paymentId:req.paymentId, nonce:req.nonce, from:S.address, amount:req.maxAmountRequired, amountMicroUsdc:req.amountMicroUsdc, authorizedAt:new Date().toISOString(), network:req.network, asset:req.asset, payTo:req.payTo, signedTxnB64:signedB64 };
-    var r=await fetch('/api/prompt/claim',{method:'POST',headers:authH({'content-type':'application/json','X-PAYMENT':btoa(JSON.stringify(payload))}),body:'{}'}).then(function(x){return x.json();});
+    var r=await fetch('/api/prompt/claim',{method:'POST',headers:{'content-type':'application/json','X-PAYMENT':btoa(JSON.stringify(payload))},body:'{}'}).then(function(x){return x.json();});
     if(!r.ok) throw new Error(r.detail||r.error||'failed'); reveal(r);
   }catch(e){ alert('Wallet payment failed: '+String(e)); }
   finally{ btn.disabled=false; btn.textContent=label; }
@@ -244,51 +175,13 @@ async function payWallet(kind){
 function reveal(r){
   el('quote').style.display='none';
   el('aAnswer').textContent=r.answer;
-  el('aMeta').innerHTML='Paid $'+Number(r.priceUsdc).toFixed(4)+' to '+esc(r.seller)+' · '+esc(r.model)+' · '+r.outputTokens+' output tokens · '+(r.explorerUrl?'<a href="'+r.explorerUrl+'" target="_blank">tx '+String(r.txId).slice(0,12)+'…</a>':('tx '+r.txId));
+  el('aMeta').innerHTML='Paid $'+Number(r.priceUsdc).toFixed(4)+' · '+r.model+' · '+r.outputTokens+' output tokens · '+(r.explorerUrl?'<a href="'+r.explorerUrl+'" target="_blank">tx '+String(r.txId).slice(0,12)+'…</a>':('tx '+r.txId));
   el('result').style.display='block'; el('result').scrollIntoView({behavior:'smooth',block:'center'});
-  loadProviders(S.sellerId);
 }
-
-// ── Seller ───────────────────────────────────────────────────────────────────
-async function loadMine(){
-  var data=await fetch('/api/prompt/sellers',{headers:authH()}).then(function(r){return r.json();}).catch(function(){return {sellers:[]};});
-  var mine=(data.sellers||[]).filter(function(p){ return p.ownerEmail===S.user.email; });
-  var sold=0, earned=0; for(var i=0;i<mine.length;i++){ sold+=mine[i].sold; earned+=Number(mine[i].earnedUsdc); }
-  el('sCount').textContent=mine.length; el('sSold').textContent=sold; el('sEarned').textContent='$'+earned.toFixed(2);
-  el('myProviders').innerHTML = mine.length ? '<div class="plabel">YOUR PROVIDERS</div><div class="providers">'+mine.map(function(p){
-    var init=(p.name||'?').replace(/[^A-Za-z ]/g,'').split(' ').map(function(w){return w[0];}).join('').slice(0,2).toUpperCase()||'AI';
-    return '<div class="prov"><div class="provAv">'+init+'</div><div style="min-width:0"><div class="provName">'+esc(p.name)+'</div>'
-      +'<div class="provMeta">'+esc(p.model)+' · live</div></div>'
-      +'<div class="provRate">'+p.sold+' sold<small>$'+Number(p.earnedUsdc).toFixed(3)+' earned</small></div></div>';
-  }).join('')+'</div>' : '';
-}
-async function listProvider(){
-  var body={ name:el('sName').value.trim(), provider:el('sProvider').value, apiKey:el('sKey').value.trim(),
-    model:el('sModel').value.trim(), payoutAddress:el('sAddr').value.trim(),
-    baseUsdc:parseFloat(el('sBase').value), perTokenUsdc:parseFloat(el('sPer').value) };
-  if(!body.apiKey||!body.model){ el('sellMsg').textContent='API key and model are required.'; return; }
-  var btn=el('listBtn'); btn.disabled=true; btn.textContent='Listing…';
-  try{
-    var r=await fetch('/api/prompt/sellers',{method:'POST',headers:authH({'content-type':'application/json'}),body:JSON.stringify(body)}).then(function(x){return x.json();});
-    if(r.error) throw new Error(r.error);
-    el('sKey').value=''; el('sName').value=''; el('sModel').value='';
-    el('sellMsg').innerHTML='<span class="ok">✓ Listed! Buyers can now purchase from you.</span>';
-    await loadMine();
-  }catch(e){ el('sellMsg').textContent='Failed: '+String(e); }
-  finally{ btn.disabled=false; btn.textContent='List my provider'; }
-}
-
-async function logout(){
-  try{ await fetch('/api/auth/logout',{method:'POST',headers:authH()}); }catch(e){}
-  localStorage.removeItem('otto_token'); localStorage.removeItem('otto_user'); location.href='/login';
-}
-
-el('logout').onclick=logout;
 el('quoteBtn').onclick=getQuote;
 el('demoBtn').onclick=payDemo;
 el('peraBtn').onclick=function(){ payWallet('pera'); };
 el('luteBtn').onclick=function(){ payWallet('lute'); };
-el('listBtn').onclick=listProvider;
 boot();
 </script>
 </body>

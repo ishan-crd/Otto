@@ -5,50 +5,41 @@ import { AlgorandRail } from "../rails/algorandRail";
 import { loadOttoWallet } from "../rails/ottoWallet";
 import type { PaymentPayload, PaymentRequirements } from "../rails/types";
 import { consume, issue, lookup } from "../x402/challenges";
-import { getUser } from "./auth";
 
 /**
- * Buy-a-Prompt marketplace (two-sided):
- *   - SELLERS connect their own Claude / OpenRouter key and list themselves as a
- *     provider with a price (base + per output token). Their key runs buyers'
- *     prompts; they earn USDC per sale.
- *   - BUYERS pick a provider, get a quote priced by the ACTUAL output size, and
- *     the answer unlocks only after they pay over x402 on Algorand.
+ * Get-a-prompt-quote endpoint: a buyer submits a prompt, Otto runs it on a real
+ * model and prices the job by the ACTUAL answer size, revealing the result only
+ * after payment settles over x402 on Algorand.
  *
  * Output pricing isn't known until after generation, so this can't use the
  * fixed-price paid() middleware — it's a quote → pay → reveal flow reusing the
- * same x402 primitives (challenge store + AlgorandRail).
+ * same x402 primitives (challenge store + AlgorandRail):
+ *   1. POST /api/prompt/quote  → generate, price it, issue a 402, hold the answer
+ *   2. POST /api/prompt/claim       (buyer's Pera/Lute wallet signs the payment)
+ *      POST /api/prompt/claim-demo  (Otto self-pays — one-click test)
  */
 
-interface Seller {
-  id: string;
-  name: string;
-  provider: "openrouter" | "anthropic";
-  apiKey: string;
-  model: string;
-  baseMicro: number;
-  perTokenMicro: number;
-  payTo: string;
-  earningsMicro: number;
-  sold: number;
-  house: boolean;
-  ownerEmail: string;
-  createdMs: number;
-}
-const sellers = new Map<string, Seller>();
+const BASE_MICRO = usdcToMicro(0.002); // $0.002 base
+const PER_TOKEN_MICRO = 30; // 0.00003 USDC per output token
+const priceFor = (outTokens: number) => BASE_MICRO + Math.max(0, outTokens) * PER_TOKEN_MICRO;
+
+const ANTHROPIC_ID: Record<string, string> = {
+  "claude-3.5-sonnet": "claude-3-5-sonnet-latest",
+  "claude-3-5-sonnet": "claude-3-5-sonnet-latest",
+  "claude-3.5-haiku": "claude-3-5-haiku-latest",
+  "claude-3-haiku": "claude-3-haiku-20240307",
+};
 
 interface Job {
   answer: string;
   model: string;
   via: string;
-  sellerId: string;
   inputTokens: number;
   outputTokens: number;
   priceMicro: number;
   createdMs: number;
 }
 const jobs = new Map<string, Job>();
-
 const est = (s: string) => Math.max(1, Math.ceil(s.length / 4));
 
 async function fetchJson<T = unknown>(
@@ -82,33 +73,7 @@ interface LlmResult {
   outputTokens: number;
 }
 
-async function anthropicWith(prompt: string, key: string, model: string): Promise<LlmResult> {
-  const data = await fetchJson<{
-    content?: { text?: string }[];
-    usage?: { input_tokens?: number };
-  }>("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "x-api-key": key,
-      "anthropic-version": "2023-06-01",
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({ model, max_tokens: 512, messages: [{ role: "user", content: prompt }] }),
-  });
-  const answer = (data?.content ?? [])
-    .map((b) => b.text ?? "")
-    .join("")
-    .trim();
-  return {
-    answer,
-    model: `anthropic/${model}`,
-    via: "anthropic",
-    inputTokens: data?.usage?.input_tokens ?? est(prompt),
-    outputTokens: est(answer),
-  };
-}
-
-async function openRouterWith(prompt: string, key: string, model: string): Promise<LlmResult> {
+async function openRouter(prompt: string, orModel: string): Promise<LlmResult> {
   const data = await fetchJson<{
     choices?: { message?: { content?: string } }[];
     usage?: { prompt_tokens?: number };
@@ -116,52 +81,73 @@ async function openRouterWith(prompt: string, key: string, model: string): Promi
     method: "POST",
     headers: {
       "content-type": "application/json",
-      authorization: `Bearer ${key}`,
+      authorization: `Bearer ${config.OPENROUTER_API_KEY}`,
       "HTTP-Referer": "https://otto.agent",
       "X-Title": "Otto prompt market",
     },
-    body: JSON.stringify({ model, max_tokens: 512, messages: [{ role: "user", content: prompt }] }),
+    body: JSON.stringify({
+      model: orModel,
+      max_tokens: 512,
+      messages: [{ role: "user", content: prompt }],
+    }),
   }).catch(() => null);
   const answer = (data?.choices?.[0]?.message?.content ?? "").trim();
+  // Price by the DELIVERED answer, not raw completion tokens (some models bill
+  // hidden reasoning) — the buyer pays for exactly what they receive.
   return {
     answer,
-    model,
+    model: orModel,
     via: "openrouter",
     inputTokens: data?.usage?.prompt_tokens ?? est(prompt),
     outputTokens: est(answer),
   };
 }
 
-/** Run the buyer's prompt on the seller's own key + model (their capacity). */
-async function runOnSeller(prompt: string, seller: Seller): Promise<LlmResult> {
-  if (!seller.apiKey) throw new Error("seller has no API key configured");
-  if (seller.provider === "anthropic") {
-    const out = await anthropicWith(prompt, seller.apiKey, seller.model);
-    if (!out.answer) throw new Error("model returned no text");
-    return out;
+/** Run the prompt on a real model. Bare claude-* ids use ANTHROPIC_API_KEY if
+ *  set; anything else goes via OpenRouter (with a reliable fallback). */
+async function callLLM(prompt: string, model: string): Promise<LlmResult> {
+  if (config.ANTHROPIC_API_KEY && !model.includes("/") && /claude/i.test(model)) {
+    const id = ANTHROPIC_ID[model] ?? model;
+    const data = await fetchJson<{
+      content?: { text?: string }[];
+      usage?: { input_tokens?: number };
+    }>("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": config.ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        model: id,
+        max_tokens: 512,
+        messages: [{ role: "user", content: prompt }],
+      }),
+    });
+    const answer = (data?.content ?? [])
+      .map((b) => b.text ?? "")
+      .join("")
+      .trim();
+    if (!answer) throw new Error("empty answer from Anthropic");
+    return {
+      answer,
+      model: `anthropic/${id}`,
+      via: "anthropic",
+      inputTokens: data?.usage?.input_tokens ?? est(prompt),
+      outputTokens: est(answer),
+    };
   }
-  const out = await openRouterWith(prompt, seller.apiKey, seller.model);
+  if (!config.OPENROUTER_API_KEY)
+    throw new Error("No model key — set OPENROUTER_API_KEY (or ANTHROPIC_API_KEY) in web/.env");
+  const orModel = model.includes("/") ? model : `anthropic/${model}`;
+  const out = await openRouter(prompt, orModel);
   if (out.answer) return out;
-  // Chosen model returned nothing (credit cap / odd model) — fall back on the
-  // seller's own key so the buyer always gets a real answer.
-  const fb = await openRouterWith(prompt, seller.apiKey, "openai/gpt-4o-mini");
+  const FALLBACK = "openai/gpt-4o-mini";
+  if (orModel === FALLBACK) throw new Error("model returned no text");
+  const fb = await openRouter(prompt, FALLBACK);
   if (!fb.answer) throw new Error("model returned no text");
   return fb;
 }
-
-const publicSeller = (s: Seller) => ({
-  id: s.id,
-  name: s.name,
-  provider: s.provider,
-  model: s.model,
-  baseUsdc: microToUsdc(s.baseMicro),
-  perTokenUsdc: microToUsdc(s.perTokenMicro),
-  sold: s.sold,
-  earnedUsdc: microToUsdc(s.earningsMicro),
-  house: s.house,
-  ownerEmail: s.ownerEmail,
-  connected: Boolean(s.apiKey),
-});
 
 export function mountPromptMarket(app: Hono) {
   const wallet = loadOttoWallet();
@@ -171,32 +157,14 @@ export function mountPromptMarket(app: Hono) {
     RECEIVER_ADDRESS: config.RECEIVER_ADDRESS || wallet.address,
   };
   const rail = new AlgorandRail(cfg);
-  const platformPayTo = rail.receiverAddress();
 
-  // Seed a reliable house provider so the buy-side works out of the box.
-  sellers.set("house", {
-    id: "house",
-    name: "Otto (house)",
-    provider: "openrouter",
-    apiKey: config.OPENROUTER_API_KEY,
-    model: config.OPENROUTER_MODEL,
-    baseMicro: usdcToMicro(0.002),
-    perTokenMicro: 30,
-    payTo: platformPayTo,
-    earningsMicro: 0,
-    sold: 0,
-    house: true,
-    ownerEmail: "",
-    createdMs: Date.now(),
-  });
-
-  function challengeFor(priceMicro: number, payTo: string, outTokens: number): PaymentRequirements {
+  function challengeFor(priceMicro: number, outTokens: number): PaymentRequirements {
     const req: PaymentRequirements = {
       scheme: "exact",
       network: rail.kind,
       resource: "/api/prompt",
       description: `Buy-a-prompt · ${outTokens} output tokens`,
-      payTo,
+      payTo: rail.receiverAddress(),
       asset: rail.assetId(),
       assetType: rail.assetType(),
       maxAmountRequired: microToUsdcStr(priceMicro),
@@ -209,70 +177,21 @@ export function mountPromptMarket(app: Hono) {
     return req;
   }
 
-  // ── Seller side ────────────────────────────────────────────────────────────
-  app.get("/api/prompt/sellers", (c) =>
-    c.json({
-      sellers: [...sellers.values()].sort((a, b) => a.createdMs - b.createdMs).map(publicSeller),
-    }),
-  );
-
-  app.post("/api/prompt/sellers", async (c) => {
-    const b = await c.req
-      .json<{
-        name?: string;
-        provider?: string;
-        apiKey?: string;
-        model?: string;
-        baseUsdc?: number;
-        perTokenUsdc?: number;
-        payoutAddress?: string;
-      }>()
-      .catch(() => ({}) as never);
-    const owner = getUser(c);
-    const name = String(b.name ?? "").trim() || owner?.name || "";
-    const apiKey = String(b.apiKey ?? "").trim();
-    const model = String(b.model ?? "").trim();
-    const provider = b.provider === "anthropic" ? "anthropic" : "openrouter";
-    if (!name || !apiKey || !model)
-      return c.json({ error: "name, apiKey and model are required" }, 400);
-    const base = Number(b.baseUsdc);
-    const perTok = Number(b.perTokenUsdc);
-    const id = randomUUID().slice(0, 8);
-    sellers.set(id, {
-      id,
-      name,
-      provider,
-      apiKey,
-      model,
-      baseMicro: usdcToMicro(Number.isFinite(base) && base >= 0 ? base : 0.003),
-      perTokenMicro: usdcToMicro(Number.isFinite(perTok) && perTok > 0 ? perTok : 0.00004),
-      payTo: String(b.payoutAddress ?? "").trim() || platformPayTo,
-      earningsMicro: 0,
-      sold: 0,
-      house: false,
-      ownerEmail: owner?.email ?? "",
-      createdMs: Date.now(),
-    });
-    return c.json({ ok: true, seller: publicSeller(sellers.get(id) as Seller) });
-  });
-
-  // ── Buyer side: quote (generate + price + hold) ────────────────────────────
+  // ── Phase 1: generate + price + hold ───────────────────────────────────────
   app.post("/api/prompt/quote", async (c) => {
-    const b = await c.req.json<{ prompt?: string; sellerId?: string }>().catch(() => ({}) as never);
-    const prompt = String(b.prompt ?? "").trim();
+    const body = await c.req.json<{ prompt?: string; model?: string }>().catch(() => ({}) as never);
+    const prompt = String(body.prompt ?? "").trim();
     if (!prompt) return c.json({ error: "empty_prompt" }, 400);
-    const seller = sellers.get(String(b.sellerId ?? "house")) ?? sellers.get("house");
-    if (!seller) return c.json({ error: "no_seller" }, 400);
+    const model = String(body.model ?? config.OPENROUTER_MODEL);
     try {
-      const out = await runOnSeller(prompt, seller);
-      const priceMicro = seller.baseMicro + out.outputTokens * seller.perTokenMicro;
-      const req = challengeFor(priceMicro, seller.payTo, out.outputTokens);
-      jobs.set(req.paymentId, { ...out, sellerId: seller.id, priceMicro, createdMs: Date.now() });
+      const out = await callLLM(prompt, model);
+      const priceMicro = priceFor(out.outputTokens);
+      const req = challengeFor(priceMicro, out.outputTokens);
+      jobs.set(req.paymentId, { ...out, priceMicro, createdMs: Date.now() });
       for (const [id, j] of jobs)
         if (Date.now() - j.createdMs > PAYMENT_TTL_SECONDS * 1000) jobs.delete(id);
       return c.json({
         jobId: req.paymentId,
-        seller: seller.name,
         model: out.model,
         via: out.via,
         inputTokens: out.inputTokens,
@@ -281,8 +200,8 @@ export function mountPromptMarket(app: Hono) {
         priceMicroUsdc: priceMicro,
         priceUsdc: microToUsdc(priceMicro),
         price: microToUsdcStr(priceMicro),
-        baseUsdc: microToUsdc(seller.baseMicro),
-        perTokenUsdc: microToUsdc(seller.perTokenMicro),
+        baseUsdc: microToUsdc(BASE_MICRO),
+        perTokenUsdc: microToUsdc(PER_TOKEN_MICRO),
         preview: out.answer.slice(0, 180) + (out.answer.length > 180 ? "…" : ""),
         accepts: [req],
       });
@@ -291,15 +210,7 @@ export function mountPromptMarket(app: Hono) {
     }
   });
 
-  function creditSeller(job: Job) {
-    const s = sellers.get(job.sellerId);
-    if (s) {
-      s.earningsMicro += job.priceMicro;
-      s.sold += 1;
-    }
-  }
-
-  // ── Buyer pays with their wallet → verify, settle, reveal ──────────────────
+  // ── Phase 2a: buyer's wallet paid it → verify, settle, reveal ──────────────
   app.post("/api/prompt/claim", async (c) => {
     const header = c.req.header("X-PAYMENT");
     if (!header) return c.json({ error: "missing_payment" }, 402);
@@ -322,12 +233,10 @@ export function mountPromptMarket(app: Hono) {
       const receipt = await rail.settle(req, payload);
       consume(payload.paymentId);
       jobs.delete(payload.paymentId);
-      creditSeller(job);
       return c.json({
         ok: true,
         answer: job.answer,
         model: job.model,
-        seller: sellers.get(job.sellerId)?.name ?? "provider",
         outputTokens: job.outputTokens,
         priceUsdc: microToUsdc(job.priceMicro),
         txId: receipt.txId,
@@ -338,10 +247,10 @@ export function mountPromptMarket(app: Hono) {
     }
   });
 
-  // ── One-click demo: Otto self-pays the quote (no browser wallet needed) ────
+  // ── Phase 2b: Otto self-pays the quote (one-click demo, no browser wallet) ──
   app.post("/api/prompt/claim-demo", async (c) => {
-    const b = await c.req.json<{ jobId?: string }>().catch(() => ({}) as never);
-    const jobId = String(b.jobId ?? "");
+    const body = await c.req.json<{ jobId?: string }>().catch(() => ({}) as never);
+    const jobId = String(body.jobId ?? "");
     const req = lookup(jobId);
     const job = jobs.get(jobId);
     if (!req || !job) return c.json({ ok: false, detail: "expired_or_unknown_job" }, 404);
@@ -352,12 +261,10 @@ export function mountPromptMarket(app: Hono) {
       const receipt = await rail.settle(req, payload);
       consume(jobId);
       jobs.delete(jobId);
-      creditSeller(job);
       return c.json({
         ok: true,
         answer: job.answer,
         model: job.model,
-        seller: sellers.get(job.sellerId)?.name ?? "provider",
         outputTokens: job.outputTokens,
         priceUsdc: microToUsdc(job.priceMicro),
         txId: receipt.txId,

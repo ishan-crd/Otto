@@ -1,9 +1,7 @@
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { mountAuth } from "./api/auth";
 import { dashboard } from "./api/dashboard";
-import { LOGIN_PAGE_HTML } from "./api/loginPage";
 import { mountModels } from "./api/models";
 import { PAY_PAGE_HTML } from "./api/payPage";
 import { mountPromptMarket } from "./api/promptMarket";
@@ -27,10 +25,8 @@ app.get("/pay", (c) => c.html(PAY_PAGE_HTML));
 mountLive(app);
 mountModels(app);
 
-// Buy-a-Prompt marketplace (login-gated, buyer/seller roles) + auth.
-app.get("/login", (c) => c.html(LOGIN_PAGE_HTML));
+// Buy-a-Prompt: get an output-priced quote, pay over x402, reveal the answer.
 app.get("/prompt", (c) => c.html(PROMPT_PAGE_HTML));
-mountAuth(app);
 mountPromptMarket(app);
 
 // Mount every registry service as a paid x402 endpoint.
