@@ -53,3 +53,4 @@ Expo Router app that talks to the web API. Wallet hero, live payment stream, and
 ## Before the hackathon
 See **`EVENT_DAY.md`** for the ordered runbook, and `web/SETUP.md` for the
 Algorand testnet go/no-go test.
+# Otto
