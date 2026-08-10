@@ -35,7 +35,7 @@ export function SheetTitle({ title, sub }: { title: string; sub?: string }) {
 }
 
 const styles = StyleSheet.create({
-  root: { paddingHorizontal: 20, paddingTop: 14 },
+  root: { paddingHorizontal: 20, paddingTop: 28 },
   sheetTitle: { color: c.text, fontSize: 20, fontFamily: font.semibold, letterSpacing: -0.3 },
   sheetSub: {
     color: c.muted,
