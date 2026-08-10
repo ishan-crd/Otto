@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Otto — the AI that earns its keep. Autonomous per-use payments over x402 on Algorand.",
+  "description": "Otto \u2014 the AI that earns its keep. Autonomous per-use payments over x402 on Algorand.",
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
@@ -26,5 +26,8 @@
     "@types/node": "^22.10.5",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

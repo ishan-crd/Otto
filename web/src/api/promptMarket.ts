@@ -1,10 +1,11 @@
 import { randomUUID } from "node:crypto";
-import type { Hono } from "hono";
+import type { Context, Hono } from "hono";
 import { config, microToUsdc, microToUsdcStr, PAYMENT_TTL_SECONDS, usdcToMicro } from "../config";
 import { AlgorandRail } from "../rails/algorandRail";
 import { loadOttoWallet } from "../rails/ottoWallet";
 import type { PaymentPayload, PaymentRequirements } from "../rails/types";
 import { consume, issue, lookup } from "../x402/challenges";
+import { recordPurchase } from "./supaAuth";
 
 /**
  * Get-a-prompt-quote endpoint: a buyer submits a prompt, Otto runs it on a real
@@ -34,12 +35,29 @@ interface Job {
   answer: string;
   model: string;
   via: string;
+  prompt: string;
   inputTokens: number;
   outputTokens: number;
   priceMicro: number;
   createdMs: number;
 }
 const jobs = new Map<string, Job>();
+
+/** Best-effort: persist the purchase to the signed-in user's Supabase history. */
+function persistPurchase(c: Context, job: Job, txId: string, explorerUrl: string) {
+  const auth = c.req.header("Authorization") ?? "";
+  const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+  if (!token) return;
+  recordPurchase(token, {
+    prompt: job.prompt.slice(0, 140),
+    model: job.model,
+    priceUsdc: microToUsdc(job.priceMicro),
+    outputTokens: job.outputTokens,
+    txId,
+    explorerUrl,
+    at: new Date().toISOString(),
+  }).catch(() => {});
+}
 const est = (s: string) => Math.max(1, Math.ceil(s.length / 4));
 
 async function fetchJson<T = unknown>(
@@ -187,7 +205,7 @@ export function mountPromptMarket(app: Hono) {
       const out = await callLLM(prompt, model);
       const priceMicro = priceFor(out.outputTokens);
       const req = challengeFor(priceMicro, out.outputTokens);
-      jobs.set(req.paymentId, { ...out, priceMicro, createdMs: Date.now() });
+      jobs.set(req.paymentId, { ...out, prompt, priceMicro, createdMs: Date.now() });
       for (const [id, j] of jobs)
         if (Date.now() - j.createdMs > PAYMENT_TTL_SECONDS * 1000) jobs.delete(id);
       return c.json({
@@ -233,6 +251,7 @@ export function mountPromptMarket(app: Hono) {
       const receipt = await rail.settle(req, payload);
       consume(payload.paymentId);
       jobs.delete(payload.paymentId);
+      persistPurchase(c, job, receipt.txId, receipt.explorerUrl);
       return c.json({
         ok: true,
         answer: job.answer,
@@ -261,6 +280,7 @@ export function mountPromptMarket(app: Hono) {
       const receipt = await rail.settle(req, payload);
       consume(jobId);
       jobs.delete(jobId);
+      persistPurchase(c, job, receipt.txId, receipt.explorerUrl);
       return c.json({
         ok: true,
         answer: job.answer,

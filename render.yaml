@@ -1,0 +1,29 @@
+# Render blueprint — deploy Otto's web service (dashboard + x402 API) as one
+# long-running Node process (required: the x402 challenge → pay flow and the
+# in-memory ledger live across requests, so serverless platforms won't work).
+#
+# One-time setup after "New → Blueprint" on render.com:
+#   1. Set the env vars marked sync:false in the dashboard (values from .env).
+#   2. PAYER_MNEMONIC: paste the 25-word mnemonic from web/.otto-wallet.json so
+#      the funded TestNet account survives deploys (containers have no disk).
+services:
+  - type: web
+    name: otto-web
+    runtime: docker
+    rootDir: web
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    healthCheckPath: /api/health
+    envVars:
+      - key: RAIL
+        value: mock
+      - key: SESSION_BUDGET_USDC
+        value: "25.0"
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: PAYER_MNEMONIC
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_PUBLISHABLE_KEY
+        sync: false

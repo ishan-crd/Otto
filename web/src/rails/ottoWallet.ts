@@ -48,6 +48,13 @@ export function loadOttoWallet(): OttoWallet {
     address: acct.addr.toString(),
     mnemonic: algosdk.secretKeyToMnemonic(acct.sk),
   };
-  fs.writeFileSync(WALLET_FILE, `${JSON.stringify(cached, null, 2)}\n`);
+  try {
+    fs.writeFileSync(WALLET_FILE, `${JSON.stringify(cached, null, 2)}\n`);
+  } catch {
+    // Read-only / ephemeral filesystem (containers, Render). The account still
+    // works for this process; set PAYER_MNEMONIC in the environment to pin a
+    // funded account across deploys.
+    console.warn("[otto] could not persist .otto-wallet.json — set PAYER_MNEMONIC in production");
+  }
   return cached;
 }

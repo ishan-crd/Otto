@@ -43,6 +43,12 @@ const Env = z.object({
   OPENROUTER_MODEL: z.string().default("openai/gpt-4o-mini"),
   // Optional: use YOUR Anthropic key directly for bare claude-* model ids.
   ANTHROPIC_API_KEY: z.string().default(""),
+
+  // Supabase (auth + user data). Accepts the NEXT_PUBLIC_-prefixed names too.
+  SUPABASE_URL: z.string().default(""),
+  SUPABASE_PUBLISHABLE_KEY: z.string().default(""),
+  NEXT_PUBLIC_SUPABASE_URL: z.string().default(""),
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z.string().default(""),
 });
 
 const parsed = Env.parse(process.env);
@@ -52,6 +58,8 @@ export const config = {
   selfUrl: `http://localhost:${parsed.PORT}`,
   defaultTaskBudgetMicro: usdcToMicro(parsed.DEFAULT_TASK_BUDGET_USDC),
   sessionBudgetMicro: usdcToMicro(parsed.SESSION_BUDGET_USDC),
+  supabaseUrl: parsed.SUPABASE_URL || parsed.NEXT_PUBLIC_SUPABASE_URL,
+  supabaseKey: parsed.SUPABASE_PUBLISHABLE_KEY || parsed.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
 };
 
 export type Config = typeof config;
