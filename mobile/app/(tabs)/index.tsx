@@ -265,7 +265,7 @@ function HomeToggle({
           <Text
             style={[s.toggleText, tab === t && { color: "#14121F", fontFamily: font.semibold }]}
           >
-            {t === "hire" ? "🤖 Hire agents" : "💬 Buy a prompt"}
+            {t === "hire" ? "Hire agents" : "Buy a prompt"}
           </Text>
         </Pressable>
       ))}
