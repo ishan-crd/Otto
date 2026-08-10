@@ -1,4 +1,4 @@
-# 🤖 Otto — the AI that earns its keep
+# Otto — the AI that earns its keep
 
 **HACKNITE Code Royale 2026 · x402 & Algorand track.**
 
