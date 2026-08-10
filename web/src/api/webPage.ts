@@ -936,6 +936,7 @@ document.addEventListener('click', function(e){
   if (e.target.closest('#taskSummaryBtn')){ openSummary(); return; }
   if (e.target.closest('#taskPdfBtn')){ downloadTaskPdf(); return; }
   if (e.target.closest('#sumClose')){ document.getElementById('sumOverlay').style.display='none'; return; }
+  if (e.target.id==='sumOverlay'){ e.target.style.display='none'; return; }
   // close the wallet popover on any outside click
   if (state.popOpen && !e.target.closest('#walletWrap')){ state.popOpen=false; document.getElementById('walletPop').style.display='none'; }
 });
@@ -1867,7 +1868,6 @@ async function downloadTaskPdf(){
   }catch(e){ toast('PDF failed: '+esc(String(e))); }
   finally{ btn.disabled=false; btn.textContent=lbl; }
 }
-document.getElementById('sumOverlay').addEventListener('click', function(e){ if(e.target===this) this.style.display='none'; });
 
 document.addEventListener('keydown', function(e){ if(e.key==='Enter' && e.target && e.target.id==='goalInput') runTask(); });
 
