@@ -1,8 +1,9 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
+import { money, otto } from "../../src/api";
 import {
   AgentAvatar,
   Mono,
@@ -15,6 +16,11 @@ import {
 import { CHIPS, type Chip, chipMatch, type Gig, HIRES, SELLS } from "../../src/data";
 import { c, font, grad } from "../../src/theme";
 
+/** A live marketplace agent mapped onto the design's Gig shape (+ serviceId). */
+interface LiveGig extends Gig {
+  serviceId: string;
+}
+
 function tagKind(tag: string): TagKind {
   if (tag === "RUNNING") return "running";
   if (tag === "OPEN") return "open";
@@ -26,9 +32,41 @@ export default function Marketplace() {
   const [query, setQuery] = useState("");
   const [market, setMarket] = useState<"hiring" | "selling">("hiring");
   const [chip, setChip] = useState<Chip>("All");
+  const [live, setLive] = useState<LiveGig[]>([]);
+
+  const load = useCallback(async () => {
+    try {
+      const m = await otto.marketplace();
+      setLive(
+        m.agents.map((a) => ({
+          serviceId: a.id,
+          title: a.title,
+          agent: a.agent,
+          meta: a.meta,
+          initials: a.initials,
+          price: money(a.price.usdc),
+          unit: a.unit,
+          tag: a.sell ? "LISTED" : "OPEN",
+          rating: a.rating,
+          cta: a.sell ? "Simulate sale" : "Hire",
+          sell: a.sell,
+        })),
+      );
+    } catch {
+      setLive([]);
+    }
+  }, []);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const q = query.trim().toLowerCase();
-  const gigs = (market === "hiring" ? HIRES : SELLS)
+  const source: (Gig | LiveGig)[] = live.length
+    ? live.filter((g) => (market === "hiring" ? !g.sell : g.sell))
+    : market === "hiring"
+      ? HIRES
+      : SELLS;
+  const gigs = source
     .filter((g) => chipMatch(chip, g))
     .filter((g) => !q || `${g.title} ${g.agent} ${g.unit}`.toLowerCase().includes(q));
 
@@ -91,13 +129,29 @@ export default function Marketplace() {
       </ScrollView>
 
       <View style={{ gap: 11, marginTop: 14 }}>
-        {gigs.map((g) => (
-          <GigCard
-            key={g.title}
-            gig={g}
-            onPress={() => router.push(`/agent/${encodeURIComponent(g.title)}`)}
-          />
-        ))}
+        {gigs.map((g) => {
+          const liveGig = "serviceId" in g ? (g as LiveGig) : null;
+          return (
+            <GigCard
+              key={g.title}
+              gig={g}
+              onPress={() =>
+                liveGig
+                  ? router.push({
+                      pathname: "/sheet/hire",
+                      params: {
+                        svc: liveGig.serviceId,
+                        agent: liveGig.agent,
+                        price: liveGig.price,
+                        unit: liveGig.unit,
+                        sell: liveGig.sell ? "1" : "0",
+                      },
+                    })
+                  : router.push(`/agent/${encodeURIComponent(g.title)}`)
+              }
+            />
+          );
+        })}
         {gigs.length === 0 && <Text style={s.empty}>No agents match “{query}”.</Text>}
       </View>
     </Screen>

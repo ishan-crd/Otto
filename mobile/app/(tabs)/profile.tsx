@@ -1,12 +1,73 @@
 import { LinearGradient } from "expo-linear-gradient";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { money, otto, type Policy, type PolicyResponse } from "../../src/api";
+import { useAppState } from "../../src/components/AppState";
 import { Mono, ProgressBar, Screen } from "../../src/components/ui";
 import { DEFAULT_RULES, RULES } from "../../src/data";
 import { c, font, grad, tabular } from "../../src/theme";
 
+/** The three enforced autonomy gates, mapped onto policy keys. */
+const POLICY_RULES: { key: keyof Policy; title: string; detail: string }[] = [
+  {
+    key: "autoHire",
+    title: "Hire agents autonomously",
+    detail: "Otto may plan tasks and contract marketplace agents on its own",
+  },
+  {
+    key: "autoPay",
+    title: "Pay without approval",
+    detail: "x402 micropayments settle instantly, inside the firewall budgets",
+  },
+  {
+    key: "sellSkills",
+    title: "Sell Otto's skills",
+    detail: "Accept inbound paid gigs from other agents",
+  },
+];
+
 export default function Profile() {
+  const { toast } = useAppState();
   const [rules, setRules] = useState<boolean[]>(DEFAULT_RULES);
+  const [policy, setPolicy] = useState<PolicyResponse | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      setPolicy(await otto.policy());
+    } catch {
+      setPolicy(null);
+    }
+  }, []);
+  useEffect(() => {
+    load();
+    const p = setInterval(load, 4000);
+    return () => clearInterval(p);
+  }, [load]);
+
+  const togglePolicy = async (key: keyof Policy) => {
+    if (!policy) return;
+    const next = !policy.policy[key];
+    try {
+      setPolicy(await otto.updatePolicy({ [key]: next }));
+      toast(next ? "✓ Autonomy granted" : "✕ Autonomy revoked — Otto is blocked at that gate");
+    } catch (err) {
+      toast(String(err instanceof Error ? err.message : err));
+    }
+  };
+
+  const killSwitch = async () => {
+    try {
+      setPolicy(await otto.updatePolicy({ autoHire: false, autoPay: false, sellSkills: false }));
+      toast("🛑 Otto stopped — hiring, paying and selling all revoked");
+    } catch (err) {
+      toast(String(err instanceof Error ? err.message : err));
+    }
+  };
+
+  const budget = policy?.firewall.sessionBudget.usdc ?? 50;
+  const used = policy?.firewall.sessionSpent.usdc ?? 11.4;
+  const pct = Math.min(100, Math.round((100 * used) / Math.max(budget, 0.0001)));
+
   const toggle = (i: number) => setRules((r) => r.map((v, idx) => (idx === i ? !v : v)));
 
   return (
@@ -47,12 +108,12 @@ export default function Profile() {
           style={s.ceilingOrb}
           pointerEvents="none"
         />
-        <Text style={s.ceilingLabel}>DAILY SPEND CEILING</Text>
-        <Mono style={{ fontSize: 30, marginTop: 8, ...tabular }}>$50.00</Mono>
-        <ProgressBar pct={23} height={5} style={{ marginTop: 14 }} />
+        <Text style={s.ceilingLabel}>SESSION SPEND CEILING</Text>
+        <Mono style={{ fontSize: 30, marginTop: 8, ...tabular }}>{money(budget)}</Mono>
+        <ProgressBar pct={pct} height={5} style={{ marginTop: 14 }} />
         <View style={s.ceilingMeta}>
-          <Mono style={s.ceilingMetaText}>$11.40 used today</Mono>
-          <Mono style={s.ceilingMetaText}>resets 00:00</Mono>
+          <Mono style={s.ceilingMetaText}>{money(used)} used</Mono>
+          <Mono style={s.ceilingMetaText}>Spend Firewall · live</Mono>
         </View>
       </LinearGradient>
 
@@ -64,22 +125,39 @@ export default function Profile() {
         end={{ x: 0.9, y: 1 }}
         style={s.rulesCard}
       >
-        {RULES.map((r, i) => (
-          <Pressable
-            key={r.title}
-            onPress={() => toggle(i)}
-            style={[s.rule, i === RULES.length - 1 && { borderBottomWidth: 0 }]}
-          >
-            <View style={{ flex: 1, minWidth: 0 }}>
-              <Text style={s.ruleTitle}>{r.title}</Text>
-              <Text style={s.ruleDetail}>{r.detail}</Text>
-            </View>
-            <Toggle on={rules[i] ?? false} />
-          </Pressable>
-        ))}
+        {policy
+          ? POLICY_RULES.map((r, i) => (
+              <Pressable
+                key={r.key}
+                onPress={() => void togglePolicy(r.key)}
+                style={[s.rule, i === POLICY_RULES.length - 1 && { borderBottomWidth: 0 }]}
+              >
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={s.ruleTitle}>{r.title}</Text>
+                  <Text style={s.ruleDetail}>{r.detail}</Text>
+                </View>
+                <Toggle on={Boolean(policy.policy[r.key])} />
+              </Pressable>
+            ))
+          : RULES.map((r, i) => (
+              <Pressable
+                key={r.title}
+                onPress={() => toggle(i)}
+                style={[s.rule, i === RULES.length - 1 && { borderBottomWidth: 0 }]}
+              >
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={s.ruleTitle}>{r.title}</Text>
+                  <Text style={s.ruleDetail}>{r.detail}</Text>
+                </View>
+                <Toggle on={rules[i] ?? false} />
+              </Pressable>
+            ))}
       </LinearGradient>
 
-      <Pressable style={({ pressed }) => [s.stop, pressed && { transform: [{ scale: 0.98 }] }]}>
+      <Pressable
+        onPress={() => void killSwitch()}
+        style={({ pressed }) => [s.stop, pressed && { transform: [{ scale: 0.98 }] }]}
+      >
         <Text style={s.stopText}>Stop Otto now</Text>
       </Pressable>
     </Screen>

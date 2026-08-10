@@ -1,8 +1,9 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { type LedgerEntry, otto, type WalletSnapshot } from "../../src/api";
+import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { type LedgerEntry, money, otto, type Task, type WalletSnapshot } from "../../src/api";
+import { useAppState } from "../../src/components/AppState";
 import { receiptParams } from "../../src/components/sheet-nav";
 import { LiveDot, Mono, OttoMark, ProgressBar, Screen } from "../../src/components/ui";
 import { FEED, HERO, type Row } from "../../src/data";
@@ -10,22 +11,42 @@ import { c, font, grad, tabular, usd } from "../../src/theme";
 
 export default function Home() {
   const router = useRouter();
+  const { toast } = useAppState();
   const [wallet, setWallet] = useState<WalletSnapshot | null>(null);
   const [live, setLive] = useState<Row[] | null>(null);
+  const [task, setTask] = useState<Task | null>(null);
+  const [goal, setGoal] = useState("");
+  const [starting, setStarting] = useState(false);
   const [tick, setTick] = useState(0);
 
   // Poll the backend; upgrade the balance + feed to live data when reachable,
   // otherwise fall through to the design fixtures (rotating on a timer).
   const poll = useCallback(async () => {
     try {
-      const [w, l] = await Promise.all([otto.wallet(), otto.ledger()]);
+      const [w, l, t] = await Promise.all([otto.wallet(), otto.ledger(), otto.tasks()]);
       setWallet(w);
       setLive(l.entries.length ? l.entries.slice(0, 5).map(toRow) : null);
+      setTask(t.tasks[0] ?? null);
     } catch {
       setWallet(null);
       setLive(null);
     }
   }, []);
+
+  const runGoal = useCallback(async () => {
+    const g = goal.trim();
+    if (!g || starting) return;
+    setStarting(true);
+    try {
+      await otto.startTask(g);
+      setGoal("");
+      router.push("/task");
+    } catch (err) {
+      toast(String(err instanceof Error ? err.message : err));
+    } finally {
+      setStarting(false);
+    }
+  }, [goal, starting, router, toast]);
 
   useEffect(() => {
     poll();
@@ -79,7 +100,7 @@ export default function Home() {
           >
             <Text style={s.statLabel}>EARNED ↑</Text>
             <Mono color={c.earnBright} style={s.statVal}>
-              {HERO.earned}
+              {wallet ? money(wallet.earned.usdc) : HERO.earned}
             </Mono>
           </View>
           <View
@@ -90,13 +111,40 @@ export default function Home() {
           >
             <Text style={s.statLabel}>SPENT ↓</Text>
             <Mono color={c.spend} style={s.statVal}>
-              {HERO.spent}
+              {wallet ? money(wallet.spent.usdc) : HERO.spent}
             </Mono>
           </View>
         </View>
       </LinearGradient>
 
-      {/* Running task → Active task tab */}
+      {/* Give Otto a task */}
+      <View style={s.goalRow}>
+        <TextInput
+          value={goal}
+          onChangeText={setGoal}
+          onSubmitEditing={runGoal}
+          placeholder='Try "book a trip to Belgium, cheapest"'
+          placeholderTextColor="rgba(242,241,246,0.36)"
+          keyboardAppearance="dark"
+          returnKeyType="go"
+          style={s.goalInput}
+        />
+        <Pressable
+          onPress={runGoal}
+          style={({ pressed }) => [s.goalBtn, pressed && { transform: [{ scale: 0.96 }] }]}
+        >
+          <LinearGradient
+            colors={grad.primary}
+            start={{ x: 0.1, y: 0 }}
+            end={{ x: 0.9, y: 1 }}
+            style={s.goalBtnBg}
+          >
+            <Text style={s.goalBtnText}>{starting ? "…" : "Run"}</Text>
+          </LinearGradient>
+        </Pressable>
+      </View>
+
+      {/* Latest task → Active task tab */}
       <Pressable
         onPress={() => router.push("/task")}
         style={({ pressed }) => [pressed && { transform: [{ scale: 0.985 }] }]}
@@ -107,16 +155,20 @@ export default function Home() {
           end={{ x: 0.9, y: 1 }}
           style={s.taskCard}
         >
-          <View style={s.taskTop}>
-            <LiveDot />
-            <Text style={s.taskRun}>RUNNING · STEP 4 OF 6</Text>
-            <Mono color={c.accentBright} style={{ fontSize: 12 }}>
-              −$1.15
-            </Mono>
-          </View>
-          <Text style={s.taskTitle}>Book Lisbon trip · 14–19 Sep</Text>
-          <Text style={s.taskDetail}>Nomad Concierge is scoring 18 hotels…</Text>
-          <ProgressBar pct={58} height={4} shimmer style={{ marginTop: 15 }} />
+          {task ? (
+            <TaskCard task={task} />
+          ) : (
+            <>
+              <View style={s.taskTop}>
+                <LiveDot />
+                <Text style={s.taskRun}>IDLE · NO ACTIVE TASK</Text>
+              </View>
+              <Text style={s.taskTitle}>Give Otto a goal</Text>
+              <Text style={s.taskDetail}>
+                Otto plans it, hires marketplace agents, and pays each per task over x402.
+              </Text>
+            </>
+          )}
         </LinearGradient>
       </Pressable>
 
@@ -143,6 +195,48 @@ export default function Home() {
         ))}
       </LinearGradient>
     </Screen>
+  );
+}
+
+function TaskCard({ task }: { task: Task }) {
+  const total = task.steps.length || 1;
+  const paid = task.steps.filter((st) => st.status === "paid").length;
+  const runLab =
+    task.status === "running"
+      ? `RUNNING · STEP ${Math.min(paid + 1, total)} OF ${total}`
+      : task.status === "done"
+        ? `COMPLETE · ${total} AGENTS PAID`
+        : task.status === "blocked"
+          ? "STOPPED BY SPEND FIREWALL"
+          : "FAILED";
+  const active = task.steps.find((st) => st.status === "running");
+  const detail = active
+    ? `${active.description}…`
+    : task.blocked
+      ? task.blocked
+      : "All agents delivered · settled in USDC";
+  return (
+    <>
+      <View style={s.taskTop}>
+        <LiveDot />
+        <Text style={s.taskRun}>{runLab}</Text>
+        <Mono color={c.accentBright} style={{ fontSize: 12 }}>
+          −{money(task.spentMicroUsdc / 1e6)}
+        </Mono>
+      </View>
+      <Text style={s.taskTitle} numberOfLines={1}>
+        {task.destination ? `Book ${task.destination} trip` : task.goal}
+      </Text>
+      <Text style={s.taskDetail} numberOfLines={1}>
+        {detail}
+      </Text>
+      <ProgressBar
+        pct={Math.max(6, Math.round((100 * paid) / total))}
+        height={4}
+        shimmer={task.status === "running"}
+        style={{ marginTop: 15 }}
+      />
+    </>
   );
 }
 
@@ -237,6 +331,23 @@ const s = StyleSheet.create({
   statPill: { flex: 1, padding: 12, borderRadius: 16, borderWidth: 1 },
   statLabel: { color: c.faint, fontSize: 10, letterSpacing: 0.4, fontFamily: font.regular },
   statVal: { fontSize: 15, marginTop: 4, ...tabular },
+
+  goalRow: { flexDirection: "row", gap: 9, marginTop: 14 },
+  goalInput: {
+    flex: 1,
+    height: 46,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+    backgroundColor: "rgba(255,255,255,0.045)",
+    color: c.text,
+    paddingHorizontal: 15,
+    fontSize: 13.5,
+    fontFamily: font.regular,
+  },
+  goalBtn: { borderRadius: 15, overflow: "hidden" },
+  goalBtnBg: { height: 46, paddingHorizontal: 20, alignItems: "center", justifyContent: "center" },
+  goalBtnText: { color: "#14121F", fontSize: 14, fontFamily: font.semibold },
 
   taskCard: {
     marginTop: 14,

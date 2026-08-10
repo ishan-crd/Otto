@@ -1,15 +1,74 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import type { ReactNode } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { type ReactNode, useCallback, useEffect, useState } from "react";
+import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
+import {
+  type LedgerEntry,
+  type LiveInfo,
+  money,
+  otto,
+  PAY_URL,
+  type Stats,
+  shortTx,
+  type WalletSnapshot,
+} from "../../src/api";
 import { receiptParams } from "../../src/components/sheet-nav";
 import { MoneyRow, Mono, Screen, ScreenTitle } from "../../src/components/ui";
-import { CHART, RECEIPTS } from "../../src/data";
+import { CHART, RECEIPTS, type Row } from "../../src/data";
 import { c, font, grad, tabular } from "../../src/theme";
+
+function toRow(e: LedgerEntry): Row {
+  return {
+    label: `${e.direction === "in" ? e.counterparty : e.resource} · ${e.direction === "in" ? "earned" : "paid"}`,
+    amount: `${e.direction === "in" ? "+" : "−"}${money(e.usdc)}`,
+    dir: e.direction,
+    tx: shortTx(e.txId),
+    time: new Date(e.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+  };
+}
 
 export default function Wallet() {
   const router = useRouter();
+  const [wallet, setWallet] = useState<WalletSnapshot | null>(null);
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [live, setLive] = useState<LiveInfo | null>(null);
+  const [rows, setRows] = useState<Row[] | null>(null);
+
+  const poll = useCallback(async () => {
+    try {
+      const [w, st, l] = await Promise.all([otto.wallet(), otto.stats(), otto.ledger()]);
+      setWallet(w);
+      setStats(st);
+      setRows(l.entries.length ? l.entries.slice(0, 6).map(toRow) : null);
+    } catch {
+      setWallet(null);
+      setStats(null);
+      setRows(null);
+    }
+  }, []);
+  useEffect(() => {
+    poll();
+    otto
+      .liveInfo()
+      .then(setLive)
+      .catch(() => {});
+    const p = setInterval(poll, 2500);
+    return () => clearInterval(p);
+  }, [poll]);
+
+  const chart = stats?.chart.some((b) => b.earnedMicro || b.spentMicro)
+    ? (() => {
+        const max = Math.max(1, ...stats.chart.flatMap((b) => [b.earnedMicro, b.spentMicro]));
+        return stats.chart.map((b, i) => ({
+          wk: `B${i + 1}`,
+          earn: Math.max(2, Math.round((78 * b.earnedMicro) / max)),
+          spend: Math.max(2, Math.round((78 * b.spentMicro) / max)),
+        }));
+      })()
+    : CHART;
+  const receipts = rows ?? RECEIPTS;
+
   return (
     <Screen>
       <ScreenTitle title="Wallet" />
@@ -21,14 +80,22 @@ export default function Wallet() {
         end={{ x: 0.9, y: 1 }}
         style={s.card}
       >
-        <Text style={s.cardLabel}>AGENT CARD</Text>
-        <Mono style={s.cardNumber}>•••• •••• •••• 4471</Mono>
+        <Text style={s.cardLabel}>AGENT ACCOUNT</Text>
+        <Mono style={s.cardNumber}>
+          {live?.receiver
+            ? `${live.receiver.slice(0, 8)}…${live.receiver.slice(-6)}`
+            : wallet
+              ? money(wallet.balance.usdc)
+              : "•••• •••• •••• ••••"}
+        </Mono>
         <View style={s.cardFoot}>
           <View>
             <Text style={s.cardMini}>HOLDER</Text>
             <Text style={s.cardHolder}>OTTO · agent</Text>
           </View>
-          <Mono style={{ fontSize: 11.5, color: "#15131F" }}>09/29</Mono>
+          <Mono style={{ fontSize: 11.5, color: "#15131F" }}>
+            {live?.enabled ? "TestNet · live" : "TestNet"}
+          </Mono>
         </View>
       </LinearGradient>
 
@@ -51,7 +118,7 @@ export default function Wallet() {
             strokeLinejoin="round"
           />
         </ActionButton>
-        <ActionButton label="Connect" onPress={() => router.push("/sheet/connect")}>
+        <ActionButton label="Pay live" onPress={() => void Linking.openURL(PAY_URL)}>
           <Path
             d="M9.5 14.5l5-5M8 12l-2.2 2.2a3.5 3.5 0 004.9 4.9L13 17M16 12l2.2-2.2a3.5 3.5 0 00-4.9-4.9L11 7"
             stroke={c.accentBright}
@@ -67,13 +134,13 @@ export default function Wallet() {
         <View style={s.statCard}>
           <Text style={s.statLabel}>IN ESCROW</Text>
           <Mono color={c.accentBright} style={s.statVal}>
-            $18.40
+            {stats ? money(stats.escrow.usdc) : "$0.00"}
           </Mono>
         </View>
         <View style={s.statCard}>
-          <Text style={s.statLabel}>PENDING IN</Text>
+          <Text style={s.statLabel}>EARNED</Text>
           <Mono color={c.earnBright} style={s.statVal}>
-            $212.05
+            {wallet ? money(wallet.earned.usdc) : "$0.00"}
           </Mono>
         </View>
       </View>
@@ -90,7 +157,7 @@ export default function Wallet() {
           <Text style={s.chartWeeks}>8 weeks</Text>
         </View>
         <View style={s.chart}>
-          {CHART.map((bar) => (
+          {chart.map((bar) => (
             <View key={bar.wk} style={s.barCol}>
               <View style={[s.barEarn, { height: bar.earn }]} />
               <View style={[s.barSpend, { height: bar.spend }]} />
@@ -111,12 +178,12 @@ export default function Wallet() {
         end={{ x: 0.9, y: 1 }}
         style={s.receipts}
       >
-        {RECEIPTS.map((r, i) => (
+        {receipts.map((r, i) => (
           <MoneyRow
-            key={`${r.tx}-${r.time}`}
+            key={`${r.tx}-${r.time}-${r.label}`}
             row={r}
             onPress={() => router.push({ pathname: "/sheet/receipt", params: receiptParams(r) })}
-            last={i === RECEIPTS.length - 1}
+            last={i === receipts.length - 1}
           />
         ))}
       </LinearGradient>

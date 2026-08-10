@@ -1,22 +1,96 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
+import { money, otto, shortTx, type Task, type TaskStep } from "../../src/api";
 import { LiveDot, Mono, PrimaryButton, Screen } from "../../src/components/ui";
 import { STEPS, type Step } from "../../src/data";
 import { c, font, grad, tabular } from "../../src/theme";
 
+/** Map a live task step onto the design's Step shape. */
+function toStep(st: TaskStep): Step {
+  const status =
+    st.status === "paid"
+      ? "PAID"
+      : st.status === "running"
+        ? "RUNNING"
+        : st.status === "blocked"
+          ? "HOLD"
+          : "QUEUED";
+  return {
+    title: st.description,
+    detail: st.txId ? `settled · tx ${shortTx(st.txId)}` : `${st.status} · x402`,
+    status,
+    cost: st.priceMicroUsdc != null ? `−${money(st.priceMicroUsdc / 1e6)}` : "—",
+    state: st.status === "paid" ? "done" : st.status === "running" ? "active" : "wait",
+  };
+}
+
+interface Outcome {
+  flight?: { airline: string; priceUsd: number };
+  hotel?: { name: string; perNightUsd: number };
+  forecast?: string;
+}
+function outcomeOf(task: Task): Outcome {
+  const out: Outcome = {};
+  for (const st of task.steps) {
+    const o = st.output as Record<string, unknown> | null;
+    if (!o) continue;
+    if (st.serviceId === "flights") out.flight = (o.cheapest as Outcome["flight"]) ?? undefined;
+    if (st.serviceId === "hotels") out.hotel = (o.cheapest as Outcome["hotel"]) ?? undefined;
+    if (st.serviceId === "weather") out.forecast = (o.forecast as string) ?? undefined;
+  }
+  return out;
+}
+
 export default function ActiveTask() {
   const router = useRouter();
+  const [task, setTask] = useState<Task | null>(null);
+
+  const poll = useCallback(async () => {
+    try {
+      const t = await otto.tasks();
+      setTask(t.tasks[0] ?? null);
+    } catch {
+      setTask(null);
+    }
+  }, []);
+  useEffect(() => {
+    poll();
+    const p = setInterval(poll, 1200);
+    return () => clearInterval(p);
+  }, [poll]);
+
+  const total = task ? task.steps.length || 1 : 6;
+  const paid = task ? task.steps.filter((st) => st.status === "paid").length : 3;
+  const runLab = !task
+    ? "IDLE · NO TASK YET"
+    : task.status === "running"
+      ? `RUNNING · STEP ${Math.min(paid + 1, total)} OF ${total}`
+      : task.status === "done"
+        ? `COMPLETE · ${total} AGENTS PAID`
+        : task.status === "blocked"
+          ? "STOPPED BY SPEND FIREWALL"
+          : "FAILED";
+  const steps = task ? task.steps.map(toStep) : STEPS;
+  const outcome = task ? outcomeOf(task) : null;
+
   return (
     <Screen>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 9 }}>
         <LiveDot />
-        <Text style={s.run}>RUNNING · STEP 4 OF 6</Text>
+        <Text style={s.run}>{runLab}</Text>
       </View>
-      <Text style={s.title}>Book Lisbon trip</Text>
-      <Text style={s.sub}>14–19 Sep · Otto is paying each agent per task</Text>
+      <Text style={s.title} numberOfLines={1}>
+        {task ? (task.destination ? `Book ${task.destination} trip` : task.goal) : "No task yet"}
+      </Text>
+      <Text style={s.sub}>
+        {task
+          ? "Otto hires specialist agents and pays each one per task · x402 · USDC"
+          : "Start one from Home — Otto will hire and pay agents for you."}
+      </Text>
 
-      {/* Itinerary draft */}
+      {/* Outcome — Otto's pick, from the real step outputs */}
       <LinearGradient
         colors={grad.heroLav}
         start={{ x: 0.15, y: 0 }}
@@ -30,29 +104,52 @@ export default function ActiveTask() {
           style={s.itinOrb}
           pointerEvents="none"
         />
-        <View style={s.itinRow}>
-          <View>
-            <Mono style={{ fontSize: 22 }}>SFO</Mono>
-            <Text style={s.itinTime}>08:15</Text>
+        <Text style={s.itinLabel}>
+          {task && task.status === "done" ? "OTTO'S PICK" : "WORKING DRAFT"}
+        </Text>
+        {outcome?.flight && (
+          <View style={s.kvRow}>
+            <Text style={s.kvKey}>Flight · {outcome.flight.airline}</Text>
+            <Mono style={{ fontSize: 14, ...tabular }}>${outcome.flight.priceUsd}</Mono>
           </View>
-          <View style={s.itinLine}>
-            <View style={s.itinDot} />
+        )}
+        {outcome?.hotel && (
+          <View style={s.kvRow}>
+            <Text style={s.kvKey} numberOfLines={1}>
+              Hotel · {outcome.hotel.name}
+            </Text>
+            <Mono style={{ fontSize: 14, ...tabular }}>${outcome.hotel.perNightUsd}/n</Mono>
           </View>
-          <View style={{ alignItems: "flex-end" }}>
-            <Mono style={{ fontSize: 22 }}>LIS</Mono>
-            <Text style={s.itinTime}>21:40</Text>
+        )}
+        {outcome?.forecast && (
+          <View style={s.kvRow}>
+            <Text style={s.kvKey}>Weather</Text>
+            <Text style={[s.kvKey, { color: c.text }]}>{outcome.forecast}</Text>
           </View>
-        </View>
+        )}
+        {!outcome?.flight && !outcome?.hotel && (
+          <Text style={[s.kvKey, { marginTop: 12 }]}>
+            {task ? "Otto is buying results…" : "Waiting for a goal."}
+          </Text>
+        )}
         <View style={s.itinTotal}>
-          <Text style={s.itinTotalLabel}>Total incl. agent fees</Text>
-          <Mono style={{ fontSize: 19, ...tabular }}>$1,284.20</Mono>
+          <Text style={s.itinTotalLabel}>Agent fees (x402)</Text>
+          <Mono color={c.accentBright} style={{ fontSize: 19, ...tabular }}>
+            {task ? money(task.spentMicroUsdc / 1e6) : "$0.00"}
+          </Mono>
         </View>
       </LinearGradient>
 
+      {task?.blocked ? (
+        <View style={s.blocked}>
+          <Text style={s.blockedText}>🛑 {task.blocked}</Text>
+        </View>
+      ) : null}
+
       {/* Steps */}
       <View style={{ marginTop: 22 }}>
-        {STEPS.map((step, i) => (
-          <StepRow key={step.title} step={step} last={i === STEPS.length - 1} />
+        {steps.map((step, i) => (
+          <StepRow key={step.title} step={step} last={i === steps.length - 1} />
         ))}
       </View>
 
@@ -61,7 +158,11 @@ export default function ActiveTask() {
         onPress={() => router.push("/sheet/approve")}
         style={s.approve}
       />
-      <Text style={s.auto}>Auto-approves in 4m 12s</Text>
+      <Text style={s.auto}>
+        {task && task.status === "running"
+          ? "Otto is paying per task…"
+          : "Escrow releases on delivery"}
+      </Text>
     </Screen>
   );
 }
@@ -174,6 +275,24 @@ const s = StyleSheet.create({
     borderRadius: 100,
     opacity: 0.4,
   },
+  itinLabel: { color: c.faint, fontSize: 11, letterSpacing: 0.9, fontFamily: font.medium },
+  kvRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 12,
+    marginTop: 12,
+  },
+  kvKey: { color: c.muted, fontSize: 12, fontFamily: font.regular, flexShrink: 1 },
+  blocked: {
+    marginTop: 14,
+    padding: 13,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(255,190,110,0.28)",
+    backgroundColor: "rgba(255,190,110,0.07)",
+  },
+  blockedText: { color: "#FFD08A", fontSize: 12.5, fontFamily: font.regular, lineHeight: 18 },
   itinRow: { flexDirection: "row", alignItems: "center", gap: 14 },
   itinTime: { color: c.faint, fontSize: 10.5, marginTop: 3, fontFamily: font.regular },
   itinLine: { flex: 1, height: 1, backgroundColor: "rgba(255,255,255,0.16)" },
