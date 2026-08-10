@@ -295,8 +295,6 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
       </div>
       <div style="display:flex;align-items:center;gap:10px">
         <a href="/prompt" class="hchip" style="text-decoration:none;color:#14121F;background:linear-gradient(160deg,#CFC9FF,#9990E8);border:none;font-weight:600">💬 Buy a Prompt</a>
-        <a href="/pay" class="hchip" style="text-decoration:none;color:rgba(242,241,246,0.72)">⚡ Live x402</a>
-        <div class="hchip"><span style="width:6px;height:6px;border-radius:50%;background:#8FE3B4"></span><span id="netChip">USDC · Algorand</span></div>
         <div id="walletWrap" style="position:relative">
           <button id="walletBtn" class="wbtn">
             <span style="width:6px;height:6px;border-radius:50%;background:#14121F;opacity:0.55"></span>Connect wallet
@@ -1096,7 +1094,6 @@ function pollStats(){
   fetch('/api/stats').then(function(r){return r.json();}).then(function(st){
     state.counts = { market: String(st.counts.agents), task: String(st.counts.runningTasks), wallet:'', receipts: String(st.counts.receipts), rules:'' };
     renderNav();
-    document.getElementById('netChip').textContent = st.network;
     // sidebar + rules-view ceiling
     var bud = st.firewall.sessionBudget.usdc, used = st.firewall.sessionSpent.usdc;
     var pct = Math.min(100, Math.round(100*used/Math.max(bud,0.0001)));
