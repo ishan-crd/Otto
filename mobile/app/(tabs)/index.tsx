@@ -5,7 +5,15 @@ import { Animated, Easing, Pressable, StyleSheet, Text, TextInput, View } from "
 import { money, otto } from "../../src/api";
 import { useAppState } from "../../src/components/AppState";
 import { Mono, ProgressBar, Screen } from "../../src/components/ui";
-import { type EconomyPlan, initials, planEconomy, type SubTask, stars } from "../../src/economy";
+import {
+  type EcoModel,
+  type EconomyPlan,
+  initials,
+  planEconomy,
+  type SubTask,
+  stars,
+  tierModels,
+} from "../../src/economy";
 import { c, font, grad, tabular, usd } from "../../src/theme";
 
 type Phase = "queued" | "sourcing" | "candidates" | "hiring" | "delivering" | "done" | "blocked";
@@ -28,6 +36,16 @@ export default function Home() {
   const [status, setStatus] = useState("");
   const [statusKind, setStatusKind] = useState<"work" | "pay" | "done">("work");
   const [finished, setFinished] = useState(false);
+  const [models, setModels] = useState<EcoModel[]>([]);
+  const useModels = models.length > 0;
+
+  // Pull the live OpenRouter catalog so Otto hires real models per role.
+  useEffect(() => {
+    otto
+      .models()
+      .then((r) => setModels(tierModels(r.models)))
+      .catch(() => {});
+  }, []);
 
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const planRef = useRef<EconomyPlan | null>(null);
@@ -63,10 +81,12 @@ export default function Home() {
       const sub = p.subs[i];
       setPhase(i, "sourcing");
       setStatusKind("work");
-      setStatus(`Sourcing specialist agents for “${sub.title}”…`);
+      setStatus(
+        useModels ? "Going through OpenRouter models…" : `Sourcing agents for ${sub.title}…`,
+      );
       t(900, () => {
         setPhase(i, "candidates");
-        setStatus(`Comparing ${sub.cands.length} bids for “${sub.title}” — rating vs price…`);
+        setStatus(`Comparing models for ${sub.title}…`);
         t(1450, () => {
           if (sub.blocked) {
             setPhases((prev) => prev.map((ph, idx) => (idx >= i ? "blocked" : ph)));
@@ -78,23 +98,23 @@ export default function Home() {
           const pick = sub.cands[sub.pickIdx];
           setPhase(i, "hiring");
           setStatusKind("pay");
-          setStatus(`Hiring ${pick.name} · escrow ${usd(sub.price)} over x402`);
+          setStatus(`${useModels ? "Using" : "Hiring"} ${pick.name} · ${usd(sub.price)}`);
           t(1150, () => {
             setPhase(i, "delivering");
             setStatusKind("work");
-            setStatus(`${pick.name} is delivering the work…`);
+            setStatus(`${pick.name} is working…`);
             t(1300, () => {
               setPhase(i, "done");
               setSpent((s) => s + sub.price);
               setStatusKind("done");
-              setStatus(`Reviewed ${pick.name} · ★${pick.rating.toFixed(2)} — work accepted`);
+              setStatus(`${pick.name} delivered · ★${pick.rating.toFixed(2)}`);
               t(650, () => runSub(i + 1));
             });
           });
         });
       });
     },
-    [finish, t, setPhase],
+    [finish, t, setPhase, useModels],
   );
 
   const start = useCallback(
@@ -103,7 +123,11 @@ export default function Home() {
       if (!goalStr) return;
       clearTimers();
       const budget = Number.parseFloat(budgetText);
-      const built = planEconomy(goalStr, Number.isFinite(budget) && budget > 0 ? budget : 0);
+      const built = planEconomy(
+        goalStr,
+        Number.isFinite(budget) && budget > 0 ? budget : 0,
+        models,
+      );
       planRef.current = built;
       setGoal(goalStr);
       setPlan(built);
@@ -111,15 +135,13 @@ export default function Home() {
       setSpent(0);
       setFinished(false);
       setStatusKind("work");
-      setStatus(
-        `Decomposed the goal into ${built.subs.length} roles. Budget ${usd(built.budget)}. Hiring…`,
-      );
+      setStatus(`${built.subs.length} roles · budget ${usd(built.budget)}`);
       setMode("run");
       // fire a real skill-sale in the background so a genuine receipt lands in the ledger
       otto.earn().catch(() => {});
       t(700, () => runSub(0));
     },
-    [budgetText, clearTimers, runSub, t],
+    [budgetText, clearTimers, runSub, t, models],
   );
 
   const reset = () => {
@@ -412,13 +434,20 @@ function EconomyCard({
           <Text style={{ color: nodeText, fontSize: 12, fontFamily: font.semibold }}>{node}</Text>
         </View>
         <View style={{ flex: 1, minWidth: 0 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <Text style={s.cardTitle}>{sub.title}</Text>
             <View style={s.roleTag}>
               <Text style={s.roleTagText}>{sub.key.toUpperCase()}</Text>
             </View>
+            {pick?.modelId &&
+              (phase === "hiring" || phase === "delivering" || phase === "done") && (
+                <View style={s.usingTag}>
+                  <Text style={s.usingText} numberOfLines={1}>
+                    ⚡ {pick.modelId}
+                  </Text>
+                </View>
+              )}
           </View>
-          <Text style={s.cardDetail}>{sub.detail}</Text>
         </View>
       </View>
 
@@ -512,22 +541,49 @@ function CandidateRow({
   picked,
   dim,
 }: {
-  cnd: { name: string; rating: number; price: number; over: boolean };
+  cnd: {
+    name: string;
+    rating: number;
+    price: number;
+    over: boolean;
+    modelId?: string;
+    tier?: number;
+    tierLabel?: string;
+  };
   picked: boolean;
   dim: boolean;
 }) {
+  const tierStyle = cnd.tier === 3 ? s.tier3 : cnd.tier === 1 ? s.tier1 : s.tier2;
+  const tierColor = cnd.tier === 3 ? "#FFCE7A" : cnd.tier === 1 ? c.earn : c.accentBright;
   return (
     <View style={[s.cand, picked && s.candPick, dim && { opacity: 0.34 }]}>
-      <View style={s.candAv}>
-        <Text style={{ color: "#C9C3FF", fontSize: 10, fontFamily: font.semibold }}>
-          {initials(cnd.name)}
+      <View style={[s.candAv, cnd.modelId && s.candAvModel]}>
+        <Text
+          style={{
+            color: cnd.modelId ? c.earn : "#C9C3FF",
+            fontSize: 10,
+            fontFamily: font.semibold,
+          }}
+        >
+          {cnd.modelId ? "OR" : initials(cnd.name)}
         </Text>
       </View>
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text style={s.candName} numberOfLines={1}>
           {cnd.name}
         </Text>
-        {cnd.over && <Text style={s.over}>over budget</Text>}
+        {cnd.modelId ? (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 3 }}>
+            <View style={[s.tierTag, tierStyle]}>
+              <Text style={[s.tierText, { color: tierColor }]}>{cnd.tierLabel}</Text>
+            </View>
+            <Mono style={{ fontSize: 9.5, color: c.dim, flexShrink: 1 }} selectable={false}>
+              {cnd.modelId}
+            </Mono>
+          </View>
+        ) : cnd.over ? (
+          <Text style={s.over}>over budget</Text>
+        ) : null}
       </View>
       {picked && (
         <View style={s.hiredTag}>
@@ -919,6 +975,41 @@ const s = StyleSheet.create({
     fontFamily: font.medium,
   },
   cardDetail: { color: c.faint, fontSize: 11.5, marginTop: 3, fontFamily: font.regular },
+  usingTag: {
+    flexDirection: "row",
+    alignItems: "center",
+    maxWidth: 190,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "rgba(143,227,180,0.2)",
+    backgroundColor: "rgba(143,227,180,0.08)",
+  },
+  usingText: { color: c.earn, fontSize: 10, fontFamily: font.mono },
+  tierTag: { paddingHorizontal: 6, paddingVertical: 1, borderRadius: 6, borderWidth: 1 },
+  tierText: {
+    fontSize: 8,
+    letterSpacing: 0.4,
+    fontFamily: font.medium,
+    textTransform: "uppercase",
+  },
+  tier1: {
+    color: c.earn,
+    borderColor: "rgba(143,227,180,0.24)",
+    backgroundColor: "rgba(143,227,180,0.1)",
+  },
+  tier2: {
+    color: c.accentBright,
+    borderColor: "rgba(169,160,255,0.24)",
+    backgroundColor: "rgba(169,160,255,0.1)",
+  },
+  tier3: {
+    color: "#FFCE7A",
+    borderColor: "rgba(255,206,122,0.26)",
+    backgroundColor: "rgba(255,206,122,0.1)",
+  },
+  candAvModel: { backgroundColor: "#14201B", borderColor: "rgba(143,227,180,0.2)" },
 
   queued: { color: "rgba(242,241,246,0.3)", fontSize: 12, fontFamily: font.regular },
   skipped: {

@@ -151,6 +151,15 @@ export interface SelfPayResult {
   detail?: string;
 }
 
+/** A live OpenRouter model with per-million-token pricing (GET /api/models). */
+export interface OpenRouterModel {
+  id: string;
+  name: string;
+  ctx: number | null;
+  perMIn: number;
+  perMOut: number;
+}
+
 /** Testnet account explorer (AlgoKit lora) — append an address. */
 export const ACCOUNT_EXPLORER = "https://lora.algokit.io/testnet/account/";
 
@@ -174,6 +183,7 @@ export const otto = {
   wallet: () => jget<WalletSnapshot>("/api/wallet"),
   ledger: () => jget<{ entries: LedgerEntry[] }>("/api/ledger"),
   stats: () => jget<Stats>("/api/stats"),
+  models: () => jget<{ source: string; count: number; models: OpenRouterModel[] }>("/api/models"),
   liveInfo: () => jget<LiveInfo>("/api/live/info"),
   liveStatus: () => jget<LiveStatus>("/api/live/status"),
   liveServices: () => jget<{ services: LiveService[] }>("/api/live/services"),

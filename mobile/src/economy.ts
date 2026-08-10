@@ -16,6 +16,19 @@ export interface Candidate {
   rating: number;
   price: number;
   over: boolean;
+  modelId?: string;
+  tier?: number;
+  tierLabel?: string;
+  sel?: number;
+}
+
+/** A live OpenRouter model, tiered by price (1 fast · 2 mid · 3 frontier). */
+export interface EcoModel {
+  id: string;
+  name: string;
+  perMIn: number;
+  perMOut: number;
+  tier: number;
 }
 export interface SubTask {
   key: string;
@@ -625,15 +638,121 @@ export function candidatesFor(key: string): Candidate[] {
   return cands;
 }
 
-/** Build a budget-aware hiring plan for a goal. */
-export function planEconomy(goal: string, budget: number): EconomyPlan {
+// Role difficulty → the model tier that fits (1 fast/cheap · 2 mid · 3 frontier).
+const ROLE_TIER: Record<string, number> = {
+  strategy: 3,
+  research: 3,
+  brand: 2,
+  content: 2,
+  copy: 1,
+  video: 3,
+  design: 2,
+  photo: 1,
+  seo: 1,
+  email: 1,
+  schedule: 1,
+  social: 1,
+  ads: 2,
+  design_ux: 2,
+  frontend: 2,
+  backend: 3,
+  mobile: 3,
+  qa: 1,
+  devops: 2,
+  data: 3,
+  analyst: 3,
+  writer: 2,
+  editor: 1,
+  flights: 2,
+  hotels: 2,
+  visa: 1,
+  itin: 1,
+  venue: 1,
+  catering: 1,
+  coord: 2,
+  sales: 2,
+  support: 1,
+  legal: 3,
+  finance: 3,
+  localize: 1,
+  plan: 2,
+  exec: 3,
+  review: 1,
+};
+const TIER_LABEL: Record<number, string> = { 1: "fast", 2: "mid", 3: "frontier" };
+
+/** Tier a raw model list by price terciles: cheap→1, mid→2, frontier→3. */
+export function tierModels(
+  raw: { id: string; name: string; perMIn: number; perMOut: number }[],
+): EcoModel[] {
+  const blended = (m: { perMIn: number; perMOut: number }) => (m.perMIn + m.perMOut) / 2;
+  const xs = raw.map(blended).sort((a, b) => a - b);
+  if (!xs.length) return [];
+  const lo = xs[Math.floor(xs.length / 3)];
+  const hi = xs[Math.floor((2 * xs.length) / 3)];
+  return raw.map((m) => {
+    const b = blended(m);
+    return { ...m, tier: b <= lo ? 1 : b <= hi ? 2 : 3 };
+  });
+}
+
+function modelPrice(m: EcoModel): number {
+  const blended = (m.perMIn + m.perMOut) / 2;
+  return round2(0.15 + Math.min(1.55, blended * 0.22));
+}
+function pickTier(models: EcoModel[], t: number): EcoModel | null {
+  const a = models.filter((m) => m.tier === t);
+  const pool = a.length ? a : models;
+  return pool.length ? shuffle(pool)[0] : null;
+}
+function modelToCand(m: EcoModel, target: number): Candidate {
+  const fit = 3 - Math.abs(m.tier - target);
+  let star = Math.round((4.6 + m.tier * 0.12 + Math.random() * 0.04) * 100) / 100;
+  if (star > 4.99) star = 4.99;
+  const price = modelPrice(m);
+  // sel: best task-fit wins, cheaper breaks ties → right tier for the job, within budget.
+  return {
+    name: m.name,
+    rating: star,
+    price,
+    over: false,
+    modelId: m.id,
+    tier: m.tier,
+    tierLabel: TIER_LABEL[m.tier],
+    sel: fit * 1000 - price,
+  };
+}
+function modelCandidates(key: string, models: EcoModel[]): Candidate[] {
+  const target = ROLE_TIER[key] ?? 2;
+  const chosen: EcoModel[] = [];
+  const seen: Record<string, boolean> = {};
+  for (const t of [3, 2, 1]) {
+    const m = pickTier(models, t);
+    if (m && !seen[m.id]) {
+      seen[m.id] = true;
+      chosen.push(m);
+    }
+  }
+  while (chosen.length < 3 && chosen.length < models.length) {
+    const r = shuffle(models)[0];
+    if (!seen[r.id]) {
+      seen[r.id] = true;
+      chosen.push(r);
+    }
+  }
+  return chosen.map((m) => modelToCand(m, target));
+}
+
+/** Build a budget-aware hiring plan for a goal. Uses live OpenRouter models when provided. */
+export function planEconomy(goal: string, budget: number, models: EcoModel[] = []): EconomyPlan {
   const roles = decompose(goal);
   const revs = shuffle(REVIEWS);
+  const useModels = models.length > 0;
   const subs: SubTask[] = roles.map((r, i) => ({
     key: r.key,
     title: r.title,
     detail: r.detail,
-    cands: candidatesFor(r.key),
+    cands: useModels ? modelCandidates(r.key, models) : candidatesFor(r.key),
     pickIdx: -1,
     price: 0,
     tx: tx(),
@@ -662,8 +781,9 @@ export function planEconomy(goal: string, budget: number): EconomyPlan {
     let br = -1;
     for (let i = 0; i < sub.cands.length; i++) {
       sub.cands[i].over = sub.cands[i].price > remaining;
-      if (!sub.cands[i].over && sub.cands[i].rating > br) {
-        br = sub.cands[i].rating;
+      const selv = sub.cands[i].sel ?? sub.cands[i].rating;
+      if (!sub.cands[i].over && selv > br) {
+        br = selv;
         best = i;
       }
     }
