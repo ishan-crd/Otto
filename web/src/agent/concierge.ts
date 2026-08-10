@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { PaymentBlockedError, payAndFetch } from "../client/x402Client";
-import { config, fmtUsdc } from "../config";
+import { config, fmtUsdc, microToUsdc } from "../config";
 import { spendGuard } from "../guard/spendGuard";
-import { planForGoal } from "./planner";
+import { type Plan, planForGoal } from "./planner";
 
 export interface ConciergeStep {
   serviceId: string;
@@ -23,9 +23,16 @@ export interface ConciergeResult {
   report: string;
 }
 
+export interface ConciergeProgress {
+  /** Fired before Otto pays for a step. */
+  onStepStart?: (serviceId: string, description: string, index: number, total: number) => void;
+  /** Fired after a step's payment settled and the work came back. */
+  onStepDone?: (step: ConciergeStep, index: number, total: number) => void;
+}
+
 /**
  * Otto's brain. Given a goal and a budget, it:
- *   1. plans which paid services to call,
+ *   1. plans which paid services to hire,
  *   2. pays each one over x402 (spend firewall gates every payment),
  *   3. stops cleanly if the firewall blocks a payment,
  *   4. synthesizes a final report from what it bought.
@@ -35,6 +42,7 @@ export interface ConciergeResult {
 export async function runConcierge(
   goal: string,
   budgetMicroUsdc = config.defaultTaskBudgetMicro,
+  progress?: ConciergeProgress,
 ): Promise<ConciergeResult> {
   const taskId = randomUUID();
   spendGuard.setTaskBudget(budgetMicroUsdc);
@@ -43,20 +51,23 @@ export async function runConcierge(
   const steps: ConciergeStep[] = [];
   let blocked: string | null = null;
 
-  for (const { service, input } of plan) {
+  for (const [i, { service, input }] of plan.steps.entries()) {
+    progress?.onStepStart?.(service.id, service.description, i, plan.steps.length);
     try {
       const { data, receipt } = await payAndFetch(`${config.selfUrl}${service.path}`, {
         taskId,
         body: input,
       });
-      steps.push({
+      const step: ConciergeStep = {
         serviceId: service.id,
         description: service.description,
         priceMicroUsdc: receipt.amountMicroUsdc,
         txId: receipt.txId,
         explorerUrl: receipt.explorerUrl,
         output: (data as { result?: unknown }).result ?? data,
-      });
+      };
+      steps.push(step);
+      progress?.onStepDone?.(step, i, plan.steps.length);
     } catch (err) {
       if (err instanceof PaymentBlockedError) {
         blocked = err.message; // firewall stopped Otto — the emergency brake
@@ -74,12 +85,14 @@ export async function runConcierge(
     steps,
     totalSpentMicroUsdc,
     blocked,
-    report: synthesize(goal, steps, blocked, totalSpentMicroUsdc),
+    report: synthesize(goal, plan, steps, blocked, totalSpentMicroUsdc),
   };
 }
 
+/** Human-readable report; trip goals get a concrete recommendation up top. */
 function synthesize(
   goal: string,
+  plan: Plan,
   steps: ConciergeStep[],
   blocked: string | null,
   spentMicro: number,
@@ -88,8 +101,31 @@ function synthesize(
   lines.push(`# Otto's report`);
   lines.push(`**Goal:** ${goal}`);
   lines.push("");
+
+  if (plan.kind === "trip" && plan.destination) {
+    const flights = stepOutput<{ cheapest?: { airline?: string; priceUsd?: number } }>(
+      steps,
+      "flights",
+    );
+    const hotels = stepOutput<{ cheapest?: { name?: string; perNightUsd?: number } }>(
+      steps,
+      "hotels",
+    );
+    const wx = stepOutput<{ forecast?: string }>(steps, "weather");
+    if (flights?.cheapest || hotels?.cheapest) {
+      lines.push(
+        `**Recommendation${plan.budgetConscious ? " (cheapest)" : ""}:** fly ${
+          flights?.cheapest?.airline ?? "—"
+        } (~$${flights?.cheapest?.priceUsd ?? "—"}), stay at ${
+          hotels?.cheapest?.name ?? "—"
+        } (~$${hotels?.cheapest?.perNightUsd ?? "—"}/night). ${wx?.forecast ?? ""}`,
+      );
+      lines.push("");
+    }
+  }
+
   lines.push(
-    `Otto autonomously hired ${steps.length} paid service${steps.length === 1 ? "" : "s"} and spent ${fmtUsdc(spentMicro)} of its own funds.`,
+    `Otto autonomously hired ${steps.length} paid agent${steps.length === 1 ? "" : "s"} and spent ${fmtUsdc(spentMicro)} (${microToUsdc(spentMicro).toFixed(4)} USDC) of its own funds.`,
   );
   lines.push("");
   for (const s of steps) {
@@ -104,4 +140,9 @@ function synthesize(
     lines.push(`> Otto could not complete the goal within budget — by design.`);
   }
   return lines.join("\n");
+}
+
+function stepOutput<T>(steps: ConciergeStep[], id: string): T | null {
+  const s = steps.find((x) => x.serviceId === id);
+  return s ? (s.output as T) : null;
 }

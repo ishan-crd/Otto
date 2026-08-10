@@ -72,6 +72,10 @@ Base URL `http://localhost:8787`. CORS is open. Money is returned in both
 | `GET` | `/api/wallet` | balance / earned / spent / topped-up |
 | `GET` | `/api/ledger` | every payment (in & out) with tx ids + explorer links |
 | `GET` | `/api/services` | the paid-service marketplace + prices |
+| `POST` | `/api/tasks` | `{ goal, budgetUsdc? }` → start a task in the background (Otto hires + pays agents); poll it live |
+| `GET` | `/api/tasks/:id` | live task snapshot: per-step status, tx ids, spent, report |
+| `GET` | `/api/marketplace` | the agent marketplace (who sells what, at what price) |
+| `POST` | `/api/marketplace/hire` | `{ serviceId, input? }` → a real x402 purchase; returns work + payment receipt |
 | `POST` | `/api/earn/simulate` | simulate an external agent paying Otto |
 | `GET` | `/api/stream` | **SSE** live stream of every payment + wallet change (for the animated dashboard) |
 | `GET` | `/api/health` | health + which rail is active |

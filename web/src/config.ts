@@ -18,7 +18,7 @@ const Env = z.object({
   PORT: z.coerce.number().default(8787),
   RAIL: z.enum(["mock", "algorand"]).default("mock"),
   DEFAULT_TASK_BUDGET_USDC: z.coerce.number().default(0.1),
-  SESSION_BUDGET_USDC: z.coerce.number().default(1.0),
+  SESSION_BUDGET_USDC: z.coerce.number().default(25.0),
 
   ALGOD_SERVER: z.string().default("https://testnet-api.algonode.cloud"),
   ALGOD_PORT: z.coerce.number().default(443),
