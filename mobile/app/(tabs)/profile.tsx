@@ -27,7 +27,7 @@ const POLICY_RULES: { key: keyof Policy; title: string; detail: string }[] = [
 ];
 
 export default function Profile() {
-  const { toast, user, signOut } = useAppState();
+  const { toast } = useAppState();
 
   const [policy, setPolicy] = useState<PolicyResponse | null>(null);
 
@@ -85,9 +85,9 @@ export default function Profile() {
         </View>
         <View style={{ flex: 1 }}>
           <Text style={s.name}>Otto</Text>
-          <Text style={s.role}>Autonomous · acting for {user?.name ?? "you"}</Text>
+          <Text style={s.role}>Autonomous agent · pays per task over x402</Text>
           <Mono color={c.accentBright} style={{ fontSize: 11, marginTop: 5 }}>
-            {user?.email ?? ""}
+            USDC · Algorand TestNet
           </Mono>
         </View>
       </View>
@@ -157,13 +157,6 @@ export default function Profile() {
         style={({ pressed }) => [s.stop, pressed && { transform: [{ scale: 0.98 }] }]}
       >
         <Text style={s.stopText}>Stop Otto now</Text>
-      </Pressable>
-
-      <Pressable
-        onPress={() => void signOut()}
-        style={({ pressed }) => [s.signout, pressed && { opacity: 0.7 }]}
-      >
-        <Text style={s.signoutText}>Sign out</Text>
       </Pressable>
     </Screen>
   );
@@ -280,15 +273,4 @@ const s = StyleSheet.create({
     justifyContent: "center",
   },
   stopText: { color: "#FFC2BB", fontSize: 14, fontFamily: font.medium },
-
-  signout: {
-    height: 46,
-    marginTop: 12,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  signoutText: { color: c.muted, fontSize: 13.5, fontFamily: font.medium },
 });

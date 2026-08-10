@@ -60,11 +60,7 @@ export const PROMPT_PAGE_HTML = /* html */ `<!DOCTYPE html>
 <div class="wrap">
   <div class="top">
     <a class="back" href="/">‹ Otto dashboard</a>
-    <div style="display:flex;align-items:center;gap:9px">
-      <span class="chip"><span class="dot"></span> USDC · Algorand TestNet</span>
-      <span class="chip" id="acct" style="color:var(--lav2);border-color:rgba(169,160,255,0.28);background:rgba(169,160,255,0.08)">…</span>
-      <button class="chip" id="logout" style="cursor:pointer;background:none">Log out</button>
-    </div>
+    <span class="chip"><span class="dot"></span> USDC · Algorand TestNet</span>
   </div>
 
   <h1>Buy a prompt.</h1>
@@ -106,29 +102,15 @@ export const PROMPT_PAGE_HTML = /* html */ `<!DOCTYPE html>
     <div class="rmeta" id="aMeta"></div>
   </div>
 
-  <div class="card" id="historyCard" style="display:none">
-    <div class="plabel">YOUR PURCHASES <span style="color:var(--dim);letter-spacing:0">· saved to your account</span></div>
-    <div id="history"></div>
-  </div>
 </div>
 
 <script type="module">
-var TOKEN=localStorage.getItem('otto_token');
-if(!TOKEN){ location.href='/login'; }
 var algosdk=null; try{ algosdk=(await import('https://esm.sh/algosdk@3.2.0')).default; }catch(e){}
 var TESTNET_GENESIS='testnet-v1.0';
-var S={ info:null, quote:null, algod:null, address:null, user:null };
+var S={ info:null, quote:null, algod:null, address:null };
 function el(id){ return document.getElementById(id); }
 function u8ToB64(u8){ var s=''; for(var i=0;i<u8.length;i++) s+=String.fromCharCode(u8[i]); return btoa(s); }
-function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-function authH(extra){ var h={ 'Authorization':'Bearer '+TOKEN }; if(extra) for(var k in extra) h[k]=extra[k]; return h; }
-
 async function boot(){
-  var me=await fetch('/api/auth/me',{headers:authH()}).then(function(r){ return r.ok?r.json():null; }).catch(function(){return null;});
-  if(!me){ localStorage.removeItem('otto_token'); location.href='/login'; return; }
-  S.user=me.user;
-  el('acct').textContent='● '+S.user.email;
-  renderHistory(S.user.purchases||[]);
   try{ S.info=await fetch('/api/live/info').then(function(r){return r.json();}); }catch(e){}
   if(algosdk && S.info) S.algod=new algosdk.Algodv2('', S.info.algodServer, S.info.algodPort);
   var models=[];
@@ -136,25 +118,6 @@ async function boot(){
   if(!models.length) models=[{id:'anthropic/claude-3.5-sonnet',name:'Claude 3.5 Sonnet'},{id:'anthropic/claude-3-haiku',name:'Claude 3 Haiku'}];
   models.push({id:'openai/gpt-4o-mini',name:'GPT-4o mini (cheap)'});
   el('model').innerHTML=models.map(function(x){ return '<option value="'+x.id+'">'+(x.name||x.id)+'</option>'; }).join('');
-}
-function renderHistory(list){
-  if(!list || !list.length){ el('historyCard').style.display='none'; return; }
-  el('historyCard').style.display='block';
-  el('history').innerHTML=list.slice(0,10).map(function(p){
-    var tx=p.explorerUrl?'<a href="'+p.explorerUrl+'" target="_blank" class="mono" style="font-size:10.5px">'+String(p.txId||'').slice(0,10)+'…</a>':'';
-    return '<div style="display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--bd)">'
-      +'<div style="flex:1;min-width:0"><div style="font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(p.prompt)+'</div>'
-      +'<div style="font-size:10.5px;color:var(--dim);margin-top:3px">'+esc(p.model)+' · '+p.outputTokens+' tokens · '+tx+'</div></div>'
-      +'<div class="mono" style="font-size:12.5px;color:var(--lav2)">$'+Number(p.priceUsdc).toFixed(4)+'</div></div>';
-  }).join('');
-}
-async function refreshHistory(){
-  var h=await fetch('/api/prompt/history',{headers:authH()}).then(function(r){ return r.ok?r.json():null; }).catch(function(){return null;});
-  if(h) renderHistory(h.purchases||[]);
-}
-async function logout(){
-  try{ await fetch('/api/auth/logout',{method:'POST',headers:authH()}); }catch(e){}
-  localStorage.removeItem('otto_token'); localStorage.removeItem('otto_user'); location.href='/login';
 }
 async function getQuote(){
   var prompt=el('prompt').value.trim(); if(!prompt){ el('prompt').focus(); return; }
@@ -178,7 +141,7 @@ function renderQuote(q){
 async function payDemo(){
   if(!S.quote) return; var btn=el('demoBtn'); btn.disabled=true; btn.textContent='Settling on Algorand…';
   try{
-    var r=await fetch('/api/prompt/claim-demo',{method:'POST',headers:authH({'content-type':'application/json'}),body:JSON.stringify({jobId:S.quote.jobId})}).then(function(x){return x.json();});
+    var r=await fetch('/api/prompt/claim-demo',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jobId:S.quote.jobId})}).then(function(x){return x.json();});
     if(!r.ok) throw new Error(r.detail||'failed'); reveal(r);
   }catch(e){ alert('Payment failed: '+String(e)); }
   finally{ btn.disabled=false; btn.textContent='Pay with Otto (demo)'; }
@@ -204,7 +167,7 @@ async function payWallet(kind){
     var txn=algosdk.makeAssetTransferTxnWithSuggestedParamsFromObject({ sender:S.address, receiver:req.payTo, amount:req.amountMicroUsdc, assetIndex:Number(req.asset), suggestedParams:sp, note:new TextEncoder().encode('x402:'+req.paymentId) });
     var signedB64=await w.signB64(txn); btn.textContent='Settling…';
     var payload={ x402Version:1, paymentId:req.paymentId, nonce:req.nonce, from:S.address, amount:req.maxAmountRequired, amountMicroUsdc:req.amountMicroUsdc, authorizedAt:new Date().toISOString(), network:req.network, asset:req.asset, payTo:req.payTo, signedTxnB64:signedB64 };
-    var r=await fetch('/api/prompt/claim',{method:'POST',headers:authH({'content-type':'application/json','X-PAYMENT':btoa(JSON.stringify(payload))}),body:'{}'}).then(function(x){return x.json();});
+    var r=await fetch('/api/prompt/claim',{method:'POST',headers:{'content-type':'application/json','X-PAYMENT':btoa(JSON.stringify(payload))},body:'{}'}).then(function(x){return x.json();});
     if(!r.ok) throw new Error(r.detail||r.error||'failed'); reveal(r);
   }catch(e){ alert('Wallet payment failed: '+String(e)); }
   finally{ btn.disabled=false; btn.textContent=label; }
@@ -214,9 +177,7 @@ function reveal(r){
   el('aAnswer').textContent=r.answer;
   el('aMeta').innerHTML='Paid $'+Number(r.priceUsdc).toFixed(4)+' · '+r.model+' · '+r.outputTokens+' output tokens · '+(r.explorerUrl?'<a href="'+r.explorerUrl+'" target="_blank">tx '+String(r.txId).slice(0,12)+'…</a>':('tx '+r.txId));
   el('result').style.display='block'; el('result').scrollIntoView({behavior:'smooth',block:'center'});
-  setTimeout(refreshHistory, 1200);
 }
-el('logout').onclick=logout;
 el('quoteBtn').onclick=getQuote;
 el('demoBtn').onclick=payDemo;
 el('peraBtn').onclick=function(){ payWallet('pera'); };

@@ -2,12 +2,10 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { dashboard } from "./api/dashboard";
-import { LOGIN_PAGE_HTML } from "./api/loginPage";
 import { mountModels } from "./api/models";
 import { PAY_PAGE_HTML } from "./api/payPage";
 import { mountPromptMarket } from "./api/promptMarket";
 import { PROMPT_PAGE_HTML } from "./api/promptPage";
-import { mountSupaAuth, supaEnabled } from "./api/supaAuth";
 import { DASHBOARD_HTML } from "./api/webPage";
 import { config, fmtUsdc } from "./config";
 import { initPersistence } from "./db/supaStore";
@@ -28,10 +26,8 @@ app.get("/pay", (c) => c.html(PAY_PAGE_HTML));
 mountLive(app);
 mountModels(app);
 
-// Buy-a-Prompt: Supabase-backed login, then quote → pay over x402 → reveal.
-app.get("/login", (c) => c.html(LOGIN_PAGE_HTML));
+// Buy-a-Prompt: get an output-priced quote, pay over x402, reveal the answer.
 app.get("/prompt", (c) => c.html(PROMPT_PAGE_HTML));
-mountSupaAuth(app);
 mountPromptMarket(app);
 
 // Mount every registry service as a paid x402 endpoint.
@@ -79,7 +75,7 @@ export async function startServer(port = config.PORT) {
     );
     console.log(`     API index: http://localhost:${info.port}/api`);
     console.log(
-      `     rail: ${config.RAIL.toUpperCase()}  |  live x402: ${liveEnabled() ? "ON (Algorand TestNet)" : "off"}  |  auth: ${supaEnabled() ? "Supabase" : "OFF (set SUPABASE_URL + key)"}`,
+      `     rail: ${config.RAIL.toUpperCase()}  |  live x402: ${liveEnabled() ? "ON (Algorand TestNet)" : "off"}`,
     );
     console.log(`     Otto's account: ${ottoAddress()}`);
     console.log(`     → fund it (test ALGO):  https://bank.testnet.algorand.network/`);

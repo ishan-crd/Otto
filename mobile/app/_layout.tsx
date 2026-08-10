@@ -12,20 +12,10 @@ import {
 } from "@expo-google-fonts/space-grotesk";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import type { ReactNode } from "react";
 import { Platform, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { AppStateProvider, useAppState } from "../src/components/AppState";
-import { LoginScreen } from "../src/components/LoginScreen";
+import { AppStateProvider } from "../src/components/AppState";
 import { c } from "../src/theme";
-
-/** Everything is behind login: no session → the sign-in screen, nothing else. */
-function AuthGate({ children }: { children: ReactNode }) {
-  const { user, authReady } = useAppState();
-  if (!authReady) return <View style={{ flex: 1, backgroundColor: c.bg }} />;
-  if (!user) return <LoginScreen />;
-  return <>{children}</>;
-}
 
 // iOS: transparent so Apple's Liquid Glass shows THROUGH the sheet (that's the
 // glassmorphism). Android has no glass, so fall back to an opaque surface.
@@ -60,21 +50,19 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <StatusBar style="light" />
       <AppStateProvider>
-        <AuthGate>
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              contentStyle: { backgroundColor: c.bg },
-            }}
-          >
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="agent/[title]" options={{ animation: "slide_from_right" }} />
-            <Stack.Screen name="pay" options={{ animation: "slide_from_right" }} />
-            {SHEETS.map((name) => (
-              <Stack.Screen key={name} name={`sheet/${name}`} options={sheetOptions} />
-            ))}
-          </Stack>
-        </AuthGate>
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: c.bg },
+          }}
+        >
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="agent/[title]" options={{ animation: "slide_from_right" }} />
+          <Stack.Screen name="pay" options={{ animation: "slide_from_right" }} />
+          {SHEETS.map((name) => (
+            <Stack.Screen key={name} name={`sheet/${name}`} options={sheetOptions} />
+          ))}
+        </Stack>
       </AppStateProvider>
     </SafeAreaProvider>
   );

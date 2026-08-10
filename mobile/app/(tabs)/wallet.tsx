@@ -8,7 +8,6 @@ import {
   type LiveInfo,
   money,
   otto,
-  type PurchaseRecord,
   type Stats,
   shortTx,
   type WalletSnapshot,
@@ -34,7 +33,6 @@ export default function Wallet() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [live, setLive] = useState<LiveInfo | null>(null);
   const [rows, setRows] = useState<Row[] | null>(null);
-  const [purchases, setPurchases] = useState<PurchaseRecord[]>([]);
 
   const poll = useCallback(async () => {
     try {
@@ -48,29 +46,15 @@ export default function Wallet() {
       setRows(null);
     }
   }, []);
-  const pollHistory = useCallback(async () => {
-    try {
-      const h = await otto.history();
-      setPurchases(h.purchases);
-    } catch {
-      /* not signed in / offline */
-    }
-  }, []);
-
   useEffect(() => {
     poll();
-    pollHistory();
     otto
       .liveInfo()
       .then(setLive)
       .catch(() => {});
     const p = setInterval(poll, 2500);
-    const h = setInterval(pollHistory, 10000);
-    return () => {
-      clearInterval(p);
-      clearInterval(h);
-    };
-  }, [poll, pollHistory]);
+    return () => clearInterval(p);
+  }, [poll]);
 
   const chart = stats?.chart.some((b) => b.earnedMicro || b.spentMicro)
     ? (() => {
@@ -215,40 +199,6 @@ export default function Wallet() {
           />
         ))}
       </LinearGradient>
-      {/* Prompt purchases — the signed-in user's history, synced with the web */}
-      {purchases.length > 0 && (
-        <>
-          <Text style={s.section}>Your prompt purchases</Text>
-          <LinearGradient
-            colors={grad.card}
-            start={{ x: 0.1, y: 0 }}
-            end={{ x: 0.9, y: 1 }}
-            style={s.receipts}
-          >
-            {purchases.slice(0, 6).map((pr, i) => (
-              <View
-                key={`${pr.txId}-${pr.at}`}
-                style={[
-                  s.purchaseRow,
-                  i === Math.min(purchases.length, 6) - 1 && { borderBottomWidth: 0 },
-                ]}
-              >
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text numberOfLines={1} style={s.purchasePrompt}>
-                    {pr.prompt}
-                  </Text>
-                  <Mono style={s.purchaseMeta}>
-                    {pr.model} · {pr.outputTokens} tokens · {shortTx(pr.txId)}
-                  </Mono>
-                </View>
-                <Mono color={c.accentBright} style={{ fontSize: 12.5 }}>
-                  ${Number(pr.priceUsdc).toFixed(4)}
-                </Mono>
-              </View>
-            ))}
-          </LinearGradient>
-        </>
-      )}
     </Screen>
   );
 }
@@ -372,14 +322,4 @@ const s = StyleSheet.create({
     marginBottom: 12,
   },
   receipts: { borderRadius: 24, borderWidth: 1, borderColor: c.border, paddingHorizontal: 16 },
-  purchaseRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    paddingVertical: 13,
-    borderBottomWidth: 1,
-    borderBottomColor: c.hairline,
-  },
-  purchasePrompt: { color: c.text, fontSize: 12.5, fontFamily: font.regular },
-  purchaseMeta: { color: c.dim, fontSize: 10, marginTop: 3 },
 });

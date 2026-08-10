@@ -280,10 +280,9 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
         <div class="mono" style="font-size:16px;font-weight:500;margin-top:3px"><span id="ceilVal">$25.00</span> <span style="font-size:11px;color:rgba(242,241,246,0.38)">/ session</span></div>
         <div class="miniBar"><i id="ceilBar" style="width:0%"></i></div>
       </div>
-      <div class="userRow" id="userRow" title="Log out" style="cursor:pointer">
-        <div class="userAv" id="userAv">·</div>
-        <div class="userText" style="line-height:1.25;min-width:0"><div id="userName" style="font-size:12.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Signing in…</div><div id="userMail" style="font-size:10.5px;color:rgba(242,241,246,0.34);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div></div>
-        <span class="userText" style="margin-left:auto;font-size:11px;color:rgba(242,241,246,0.4)">⎋</span>
+      <div class="userRow" id="userRow" title="Otto&#39;s on-chain account">
+        <div class="userAv">OT</div>
+        <div class="userText" style="line-height:1.25;min-width:0"><div style="font-size:12.5px;font-weight:500">Otto</div><div id="userAddr" class="mono" style="font-size:10px;color:rgba(242,241,246,0.34);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">…</div></div>
       </div>
     </div>
   </aside>
@@ -635,25 +634,6 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
 </div>
 
 <script>
-// ── Auth gate: the dashboard is only for signed-in users (Supabase) ──────────
-var OTTO_TOKEN = localStorage.getItem('otto_token');
-if (!OTTO_TOKEN) location.replace('/login');
-fetch('/api/auth/me', { headers:{ Authorization:'Bearer '+OTTO_TOKEN } })
-  .then(function(r){ return r.ok ? r.json() : Promise.reject(); })
-  .then(function(me){
-    var u = me.user;
-    var initials = (u.name||u.email||'?').replace(/[^A-Za-z ]/g,'').split(' ').map(function(w){return w[0];}).join('').slice(0,2).toUpperCase() || 'U';
-    document.getElementById('userAv').textContent = initials;
-    document.getElementById('userName').textContent = u.name;
-    document.getElementById('userMail').textContent = u.email;
-  })
-  .catch(function(){ localStorage.removeItem('otto_token'); location.replace('/login'); });
-document.getElementById('userRow').addEventListener('click', function(){
-  fetch('/api/auth/logout',{method:'POST',headers:{Authorization:'Bearer '+OTTO_TOKEN}}).catch(function(){});
-  localStorage.removeItem('otto_token'); localStorage.removeItem('otto_user');
-  location.replace('/login');
-});
-
 var state = { page:'market', tab:'hiring', tick:0, filter:'all', rules:[true,true,false,true,true],
   agents:[], task:null, taskTimer:null, feedLive:false, counts:null, policy:null, liveInfo:null, ledgerRows:[],
   budget:2, walletConnected:false, liveStatus:null, popOpen:false, statusTimer:null, sidebarMini:false };
@@ -1156,6 +1136,7 @@ function pollPolicy(){
 function pollLiveInfo(){
   fetch('/api/live/info').then(function(r){return r.json();}).then(function(li){
     state.liveInfo = li; renderRails(); renderWallet();
+    if (li.receiver) document.getElementById('userAddr').textContent = li.receiver.slice(0,6)+'…'+li.receiver.slice(-4);
     document.getElementById('setNet').textContent = 'Algorand TestNet';
     document.getElementById('setAsset').textContent = 'ASA '+li.assetId;
     document.getElementById('cardAddr').textContent = li.receiver ? (li.receiver.slice(0,10)+'…'+li.receiver.slice(-8)) : 'set RECEIVER_ADDRESS';
