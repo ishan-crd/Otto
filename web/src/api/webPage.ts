@@ -181,7 +181,7 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
   .econOttoCore div{width:11px;height:11px;border-radius:50%;border:2.5px solid #131320}
   .econOttoLab{font-size:10px;letter-spacing:0.12em;color:rgba(242,241,246,0.42);display:flex;align-items:center;gap:7px}
   .econOttoDot{width:6px;height:6px;border-radius:50%;background:#DAD5FF;box-shadow:0 0 10px rgba(179,170,255,0.9)}
-  .econOttoStatus{font-size:14.5px;font-weight:500;margin-top:5px;letter-spacing:-0.01em;color:#F2F1F6}
+  .econOttoStatus{font-size:17px;font-weight:500;margin-top:5px;letter-spacing:-0.01em;color:#F2F1F6}
 
   .econPipe{margin-top:18px;display:flex;flex-direction:column;gap:12px}
   .econCard{border-radius:20px;border:1px solid rgba(255,255,255,0.07);background:linear-gradient(160deg,rgba(255,255,255,0.04),rgba(255,255,255,0.012));padding:16px 18px;animation:ottoRise .4s both}
@@ -193,8 +193,12 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
   .econNodeRun{background:linear-gradient(150deg,#DAD5FF,#8F87F1);border:1px solid rgba(255,255,255,0.12);color:#15131F;box-shadow:0 0 0 5px rgba(143,135,241,0.14)}
   .econNodeOk{background:linear-gradient(150deg,#A9EFC8,#5DA582);border:1px solid rgba(255,255,255,0.12);color:#0F1712}
   .econRole{font-size:9.5px;letter-spacing:0.06em;padding:3px 8px;border-radius:7px;color:#C8C1FF;background:rgba(169,160,255,0.1);border:1px solid rgba(169,160,255,0.22)}
-  .econTitle{font-size:14px;font-weight:600;letter-spacing:-0.01em}
+  .econTitle{font-size:16.5px;font-weight:600;letter-spacing:-0.01em}
   .econDetail{font-size:11.5px;color:rgba(242,241,246,0.4);margin-top:3px}
+  .econTier{display:inline-block;font-size:8.5px;letter-spacing:0.04em;text-transform:uppercase;padding:1px 6px;border-radius:6px;margin-right:6px;vertical-align:middle;font-family:'Space Grotesk',sans-serif}
+  .econTier.t1{color:#8FE3B4;background:rgba(143,227,180,0.1);border:1px solid rgba(143,227,180,0.24)}
+  .econTier.t2{color:#C8C1FF;background:rgba(169,160,255,0.1);border:1px solid rgba(169,160,255,0.24)}
+  .econTier.t3{color:#FFCE7A;background:rgba(255,206,122,0.1);border:1px solid rgba(255,206,122,0.26)}
   .econStage{margin-top:14px;padding-left:39px}
 
   .econSourcing{display:flex;align-items:center;gap:10px}
@@ -209,7 +213,7 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
   .econCand{flex:1;min-width:150px;border-radius:14px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);padding:12px 13px;animation:econFan .4s both;transition:opacity .35s,border-color .35s,background .35s}
   .econCand .cn{display:flex;align-items:center;gap:9px}
   .econCandAv{width:28px;height:28px;flex:none;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:600;color:#C9C3FF;background:linear-gradient(150deg,#33304A,#16161F);border:1px solid rgba(255,255,255,0.07)}
-  .econCandName{font-size:12.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .econCandName{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .econModelId{font-family:var(--mono);font-size:9.5px;color:rgba(242,241,246,0.34);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .econOrTag{display:inline-flex;align-items:center;gap:5px;font-size:10px;letter-spacing:0.04em;color:#8FE3B4;background:rgba(143,227,180,0.08);border:1px solid rgba(143,227,180,0.2);border-radius:7px;padding:3px 8px;margin-left:8px}
   .econCandMeta{display:flex;align-items:center;justify-content:space-between;margin-top:10px}
@@ -380,7 +384,7 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
           <div class="econBudgetRow">
             <span class="econBudgetLbl">BUDGET</span>
             <div class="econBudgetField">$<input id="econBudgetInput" type="number" min="0.5" step="0.5" value="10.00" /><span class="econBudgetUnit">USDC</span></div>
-            <span class="econBudgetHint">Otto hires the best agents it can within this — and stops if it runs out.</span>
+            <span class="econBudgetHint">Otto stops if it runs out.</span>
           </div>
           <div class="econEx">
             <span class="econExLbl">Try</span>
@@ -1284,12 +1288,34 @@ document.getElementById('sideToggle').addEventListener('click', function(){ setS
 // ── Agent Economy: decompose a goal → hire specialist agents live ────────────
 var ECON = { running:false, goal:'', budget:0, spent:0, subs:[], idx:0, timers:[], useModels:false };
 var ECON_MODELS = [];
+// Role difficulty → the model tier that fits (1 fast/cheap · 2 mid · 3 frontier).
+var ROLE_TIER = { strategy:3,research:3,brand:2,content:2,copy:1,video:3,design:2,photo:1,seo:1,email:1,schedule:1,social:1,ads:2,
+  design_ux:2,frontend:2,backend:3,mobile:3,qa:1,devops:2,data:3,analyst:3,writer:2,editor:1,
+  flights:2,hotels:2,visa:1,itin:1,venue:1,catering:1,coord:2,sales:2,support:1,legal:3,finance:3,localize:1,
+  plan:2,exec:3,review:1 };
+var TIER_LABEL = { 1:'fast', 2:'mid', 3:'frontier' };
 function econModelPrice(m){ var blended=(m.perMIn+m.perMOut)/2; return Math.round((0.15+Math.min(1.55, blended*0.22))*100)/100; }
-function econModelRating(m){ var blended=(m.perMIn+m.perMOut)/2; return Math.round((4.6+Math.min(0.39, blended*0.05))*100)/100; }
-function econModelCands(){
-  return econShuffle(ECON_MODELS).slice(0,3).map(function(m){
-    return { name:m.name, price:econModelPrice(m), rating:econModelRating(m), over:false, modelId:m.id, rate:m.perMIn };
-  });
+// Tier the live catalog by price terciles once: cheap→1, mid→2, frontier→3.
+function econTierModels(){
+  var xs=ECON_MODELS.map(function(m){ return (m.perMIn+m.perMOut)/2; }).sort(function(a,b){ return a-b; });
+  if(!xs.length) return;
+  var lo=xs[Math.floor(xs.length/3)], hi=xs[Math.floor(2*xs.length/3)];
+  for(var i=0;i<ECON_MODELS.length;i++){ var b=(ECON_MODELS[i].perMIn+ECON_MODELS[i].perMOut)/2; ECON_MODELS[i].tier = b<=lo?1:(b<=hi?2:3); }
+}
+function econModelsByTier(t){ var a=[]; for(var i=0;i<ECON_MODELS.length;i++) if(ECON_MODELS[i].tier===t) a.push(ECON_MODELS[i]); return a; }
+function econPickTier(t){ var a=econModelsByTier(t); if(!a.length) a=ECON_MODELS; return a.length?econShuffle(a)[0]:null; }
+function econModelToCand(m,target){
+  var fit=3-Math.abs(m.tier-target);
+  var star=Math.round((4.6+m.tier*0.12+Math.random()*0.04)*100)/100; if(star>4.99) star=4.99;
+  var price=econModelPrice(m);
+  // sel: best task-fit wins, cheaper breaks ties → "right tier for the job, within budget".
+  return { name:m.name, price:price, rating:star, over:false, modelId:m.id, rate:m.perMIn, tier:m.tier, tierLabel:TIER_LABEL[m.tier], sel:fit*1000-price };
+}
+function econModelCands(key){
+  var target=ROLE_TIER[key]||2, chosen=[], seen={}, order=[3,2,1];
+  for(var k=0;k<order.length;k++){ var m=econPickTier(order[k]); if(m&&!seen[m.id]){ seen[m.id]=1; chosen.push(m); } }
+  while(chosen.length<3 && chosen.length<ECON_MODELS.length){ var r=econShuffle(ECON_MODELS)[0]; if(!seen[r.id]){ seen[r.id]=1; chosen.push(r); } }
+  return chosen.map(function(m){ return econModelToCand(m,target); });
 }
 var ECON_POOL = {
   design:['Pixel Guild','Aurora UX','Nomad Design','Glassmith','Formcraft'],
@@ -1436,7 +1462,7 @@ function econRound(x){ return Math.round(x*100)/100; }
 function econTx(){ var h='0123456789abcdef',a='',b=''; for(var i=0;i<4;i++){ a+=h[Math.floor(Math.random()*16)]; b+=h[Math.floor(Math.random()*16)]; } return '0x'+a+'…'+b; }
 function econInitials(n){ var p=n.split(' '); return (p[0].charAt(0)+(p[1]?p[1].charAt(0):(p[0].charAt(1)||''))).toUpperCase(); }
 function econCandidates(key){
-  if (ECON_MODELS.length) return econModelCands();
+  if (ECON_MODELS.length) return econModelCands(key);
   var pool=ECON_POOL[key]||['Otto Partner','Agent Node','Specialist Co'];
   var band=ECON_BAND[key]||[0.4,1.0];
   var names=econShuffle(pool).slice(0,3);
@@ -1469,7 +1495,7 @@ function econCandHtml(s,j){
   else if (s.phase==='blocked' && cnd.over) cls += ' dim';
   var badge = ((s.phase==='hiring'||s.phase==='delivering'||s.phase==='done') && j===s.pickIdx) ? '<span class="econHired">HIRED</span>' : '';
   var over = cnd.over ? '<div class="econOver">over budget</div>' : '';
-  var modelLine = cnd.modelId ? '<div class="econModelId">'+esc(cnd.modelId)+' · $'+cnd.rate.toFixed(2)+'/M</div>' : '';
+  var modelLine = cnd.modelId ? '<div class="econModelId"><span class="econTier t'+cnd.tier+'">'+cnd.tierLabel+'</span> '+esc(cnd.modelId)+'</div>' : '';
   var av = cnd.modelId ? '<div class="econCandAv" style="color:#8FE3B4;background:linear-gradient(150deg,#1C2A24,#141B18)">OR</div>' : '<div class="econCandAv">'+econInitials(cnd.name)+'</div>';
   return '<div class="'+cls+'" style="animation-delay:'+(j*0.08)+'s">'
     +'<div class="cn">'+av+'<div style="min-width:0;flex:1"><div class="econCandName">'+esc(cnd.name)+'</div>'+modelLine+'</div>'+badge+'</div>'
@@ -1497,8 +1523,7 @@ function econCardInner(i){
   var usingBadge = (pick && pick.modelId && (s.phase==='hiring'||s.phase==='delivering'||s.phase==='done'))
     ? '<span class="econOrTag">⚡ using '+esc(pick.modelId)+'</span>' : '';
   return '<div class="econCardTop"><div class="econNode '+ncls+'">'+node+'</div>'
-    +'<div style="flex:1;min-width:0"><div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap"><span class="econTitle">'+esc(s.title)+'</span><span class="econRole">'+s.key.toUpperCase()+'</span>'+usingBadge+'</div>'
-    +'<div class="econDetail">'+esc(s.detail)+'</div></div></div>'
+    +'<div style="flex:1;min-width:0"><div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap"><span class="econTitle">'+esc(s.title)+'</span><span class="econRole">'+s.key.toUpperCase()+'</span>'+usingBadge+'</div></div></div>'
     +'<div class="econStage">'+econStageHtml(s)+'</div>';
 }
 function econCardClass(s){ return 'econCard'+((s.phase==='sourcing'||s.phase==='candidates'||s.phase==='hiring'||s.phase==='delivering')?' on':'')+(s.phase==='done'?' ok':'')+(s.phase==='blocked'?' blk':''); }
@@ -1510,9 +1535,9 @@ function econUpdateCard(i){ var el=document.getElementById('econCard'+i); if(el)
 function econRunSub(i){
   if (i>=ECON.subs.length) return econFinish();
   ECON.idx=i; var s=ECON.subs[i];
-  s.phase='sourcing'; econUpdateCard(i); econOtto((ECON.useModels?'Going through OpenRouter models for “':'Sourcing specialist agents for “')+s.title+'”…','work');
+  s.phase='sourcing'; econUpdateCard(i); econOtto(ECON.useModels?'Going through OpenRouter models…':('Sourcing agents for '+s.title+'…'),'work');
   econTimer(function(){
-    s.phase='candidates'; econUpdateCard(i); econOtto('Comparing '+s.cands.length+(ECON.useModels?' OpenRouter models for “':' bids for “')+s.title+'” — quality vs price…','work');
+    s.phase='candidates'; econUpdateCard(i); econOtto('Comparing models for '+s.title+'…','work');
     econTimer(function(){
       if (s.blocked){
         s.phase='blocked'; econUpdateCard(i);
@@ -1521,12 +1546,12 @@ function econRunSub(i){
         return econTimer(econFinish, 750);
       }
       var pk=s.cands[s.pickIdx];
-      s.phase='hiring'; econUpdateCard(i); econOtto((ECON.useModels?'Otto is using ':'Hiring ')+pk.name+(pk.modelId?' ('+pk.modelId+')':'')+' · paying '+usd(s.price)+' over x402','pay');
+      s.phase='hiring'; econUpdateCard(i); econOtto((ECON.useModels?'Using ':'Hiring ')+pk.name+' · '+usd(s.price),'pay');
       econTimer(function(){
-        s.phase='delivering'; econUpdateCard(i); econOtto(pk.name+(ECON.useModels?' is running the job…':' is delivering the work…'),'work');
+        s.phase='delivering'; econUpdateCard(i); econOtto(pk.name+' is working…','work');
         econTimer(function(){
           s.phase='done'; ECON.spent+=s.price; econUpdateCard(i); econMeter();
-          econOtto((ECON.useModels?'':'Reviewed ')+pk.name+' · ★'+pk.rating.toFixed(2)+(ECON.useModels?' returned the work — accepted':' — work accepted'),'done');
+          econOtto(pk.name+' delivered · ★'+pk.rating.toFixed(2),'done');
           econTimer(function(){ econRunSub(i+1); }, 680);
         }, 1350);
       }, 1150);
@@ -1586,7 +1611,8 @@ function econStart(goal){
     var best=-1,br=-1;
     for (var c=0;c<sub.cands.length;c++){
       sub.cands[c].over = sub.cands[c].price > remaining;
-      if (!sub.cands[c].over && sub.cands[c].rating>br){ br=sub.cands[c].rating; best=c; }
+      var selv = sub.cands[c].sel!=null ? sub.cands[c].sel : sub.cands[c].rating;
+      if (!sub.cands[c].over && selv>br){ br=selv; best=c; }
     }
     if (best<0){ sub.blocked=true; sub.trigger=true; stopped=true; ECON.blocked='Only '+usd(remaining)+' left — no agent for “'+sub.title+'” fits the budget.'; continue; }
     sub.pickIdx=best; sub.price=sub.cands[best].price; remaining=econRound(remaining-sub.price);
@@ -1595,7 +1621,7 @@ function econStart(goal){
   document.getElementById('econGoalText').title=goal;
   document.getElementById('econBudget').textContent=usd(ECON.budget);
   document.getElementById('econSpent').textContent=usd(0);
-  document.getElementById('econCount').textContent='Otto broke this into '+plan.length+' roles · hiring in order, within your '+usd(ECON.budget)+' budget';
+  document.getElementById('econCount').textContent=plan.length+' roles · budget '+usd(ECON.budget);
   document.getElementById('econIntro').style.display='none';
   document.getElementById('econRun').style.display='block';
   document.getElementById('econDone').style.display='none';
@@ -1618,7 +1644,7 @@ function econInit(){
   for (var i=0;i<chips.length;i++) chips[i].addEventListener('click', function(){ var v=this.getAttribute('data-ex'); document.getElementById('econInput').value=v; econStart(v); });
   // Pull the live OpenRouter catalog so Otto hires real models per role.
   fetch('/api/models').then(function(r){return r.json();}).then(function(m){
-    if (m && m.models && m.models.length){ ECON_MODELS = m.models; var b=document.getElementById('econModelBadge'); if(b){ b.style.display='inline-flex'; b.innerHTML='⚡ Powered by '+m.models.length+' live OpenRouter models'; } }
+    if (m && m.models && m.models.length){ ECON_MODELS = m.models; econTierModels(); var b=document.getElementById('econModelBadge'); if(b){ b.style.display='inline-flex'; b.innerHTML='⚡ '+m.models.length+' live OpenRouter models'; } }
   }).catch(function(){});
 }
 econInit();
