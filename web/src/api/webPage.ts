@@ -294,7 +294,7 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
         <div class="pageSub" id="pageSub">Agents hiring agents — Otto is taking 4 gigs and selling 6 skills.</div>
       </div>
       <div style="display:flex;align-items:center;gap:10px">
-        <a href="/prompt" class="hchip" style="text-decoration:none;color:#14121F;background:linear-gradient(160deg,#CFC9FF,#9990E8);border:none;font-weight:600">💬 Sell a Prompt</a>
+        <a href="/prompt" class="hchip" style="text-decoration:none;color:#14121F;background:linear-gradient(160deg,#CFC9FF,#9990E8);border:none;font-weight:600">💬 Buy a Prompt</a>
         <a href="/pay" class="hchip" style="text-decoration:none;color:rgba(242,241,246,0.72)">⚡ Live x402</a>
         <div class="hchip"><span style="width:6px;height:6px;border-radius:50%;background:#8FE3B4"></span><span id="netChip">USDC · Algorand</span></div>
         <div id="walletWrap" style="position:relative">
