@@ -1,5 +1,12 @@
-import "dotenv/config";
+import path from "node:path";
+import { config as loadEnv } from "dotenv";
 import { z } from "zod";
+
+// The server runs with cwd = web/, so load web/.env first, then the monorepo
+// root .env as a fallback (dotenv won't override already-set vars, so web/.env
+// wins). This makes a key placed in EITHER file work.
+loadEnv();
+loadEnv({ path: path.resolve(process.cwd(), "../.env") });
 
 /** 1 USDC = 1_000_000 micro-USDC. All money inside Otto is integer micro-USDC. */
 export const MICRO = 1_000_000;
