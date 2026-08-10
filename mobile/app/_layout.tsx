@@ -12,10 +12,24 @@ import {
 } from "@expo-google-fonts/space-grotesk";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { View } from "react-native";
+import { Platform, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { SheetProvider } from "../src/components/BottomSheet";
+import { AppStateProvider } from "../src/components/AppState";
 import { c } from "../src/theme";
+
+// iOS: transparent so Apple's Liquid Glass shows THROUGH the sheet (that's the
+// glassmorphism). Android has no glass, so fall back to an opaque surface.
+const sheetContentBg = Platform.OS === "ios" ? "transparent" : c.surface;
+const sheetOptions = {
+  presentation: "formSheet" as const,
+  headerShown: false,
+  sheetGrabberVisible: true,
+  sheetCornerRadius: 34,
+  sheetAllowedDetents: "fitToContents" as const,
+  contentStyle: { backgroundColor: sheetContentBg },
+};
+
+const SHEETS = ["fund", "withdraw", "connect", "hire", "approve", "receipt"];
 
 export default function RootLayout() {
   const [loaded] = useFonts({
@@ -35,7 +49,7 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <StatusBar style="light" />
-      <SheetProvider>
+      <AppStateProvider>
         <Stack
           screenOptions={{
             headerShown: false,
@@ -44,8 +58,11 @@ export default function RootLayout() {
         >
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="agent/[title]" options={{ animation: "slide_from_right" }} />
+          {SHEETS.map((name) => (
+            <Stack.Screen key={name} name={`sheet/${name}`} options={sheetOptions} />
+          ))}
         </Stack>
-      </SheetProvider>
+      </AppStateProvider>
     </SafeAreaProvider>
   );
 }

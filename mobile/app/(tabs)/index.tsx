@@ -3,14 +3,13 @@ import { useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { type LedgerEntry, otto, type WalletSnapshot } from "../../src/api";
-import { useSheet } from "../../src/components/BottomSheet";
+import { receiptParams } from "../../src/components/sheet-nav";
 import { LiveDot, Mono, OttoMark, ProgressBar, Screen } from "../../src/components/ui";
 import { FEED, HERO, type Row } from "../../src/data";
 import { c, font, grad, tabular, usd } from "../../src/theme";
 
 export default function Home() {
   const router = useRouter();
-  const sheet = useSheet();
   const [wallet, setWallet] = useState<WalletSnapshot | null>(null);
   const [live, setLive] = useState<Row[] | null>(null);
   const [tick, setTick] = useState(0);
@@ -138,7 +137,7 @@ export default function Home() {
           <FeedRow
             key={`${r.tx}-${r.label}`}
             row={r}
-            onPress={() => sheet.open("receipt", { row: r })}
+            onPress={() => router.push({ pathname: "/sheet/receipt", params: receiptParams(r) })}
             last={i === feed.length - 1}
           />
         ))}
