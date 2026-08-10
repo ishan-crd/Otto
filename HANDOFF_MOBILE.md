@@ -7,29 +7,65 @@ dashboard in parallel. **Your job is the `mobile/` app UI only.** Read the
 
 ---
 
-## 0. Working agreement (READ FIRST)
+## 0. Working agreement — how we work together without ever colliding
 
-- **Only touch files under `mobile/`.** Do not edit `web/`, root configs, or the
-  root `package.json`. The other agent owns those.
-- **Work on your own branch.** From the repo root:
-  ```bash
-  git checkout -b mobile-ui
-  ```
-  Ideally use a separate **git worktree** so you never share a working copy:
-  ```bash
-  git worktree add ../otto-mobile mobile-ui && cd ../otto-mobile
-  ```
-- **Open a PR when done.** If the repo has a GitHub remote, push and
-  `gh pr create`. If it has **no remote yet** (likely), tell the user — they need
-  to create a GitHub repo and push first, or you just leave the `mobile-ui`
-  branch for a local merge.
-- **Commit only `mobile/` changes.** End commit messages with:
-  `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`
-- Before committing, run the gates (from repo root): `pnpm -C mobile exec tsc
-  --noEmit` and `pnpm exec biome check mobile` — both must be clean.
+Repo: **https://github.com/ishan-crd/Otto**. Two agents work in parallel. It is
+safe **only** because of two walls: **separate branches** and **disjoint
+folders**. Hold both and neither of us can ever disturb the other.
 
-This will **not** disturb the other agent as long as you stay on your branch and
-inside `mobile/`.
+### The two walls
+
+1. **Folder ownership (the real guarantee).**
+   | Path | Owner | You may edit? |
+   |---|---|---|
+   | `mobile/**` (incl. `mobile/package.json`, `mobile/app.json`, `mobile/README.md`, `mobile/pnpm-lock.yaml`) | **You (mobile agent)** | ✅ yes — this is your whole world |
+   | `web/**` | web agent | ❌ never |
+   | root files: `package.json`, `pnpm-workspace.yaml`, `pnpm-lock.yaml`, `biome.json`, `README.md`, `EVENT_DAY.md`, `HANDOFF_MOBILE.md`, `.gitignore` | web agent | ❌ never |
+
+   Because our file sets **never overlap**, merges are automatically
+   conflict-free even when both branches move.
+
+2. **Branch separation.**
+   - The web agent integrates on **`main`**.
+   - **You work on the existing `mobile-ui` branch** (already created off `main`
+     and pushed to origin). Get it with a **fresh clone** (don't reuse the web
+     agent's working copy):
+     ```bash
+     git clone https://github.com/ishan-crd/Otto.git otto-mobile
+     cd otto-mobile
+     git checkout mobile-ui
+     pnpm -C mobile install
+     ```
+
+### Syncing (conflict-free by construction)
+Pull the web agent's latest before you push, so your branch stays current:
+```bash
+git fetch origin
+git merge origin/main      # only web/ + root move → never touches your mobile/ files
+```
+If git ever reports a conflict, you (or the web agent) edited outside your lane —
+stop and re-scope; it should never happen.
+
+### Delivering your work
+```bash
+git add mobile/                     # stage ONLY mobile/
+git commit -m "Mobile UI: <what>
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
+git push origin mobile-ui
+gh pr create --base main --head mobile-ui --title "Mobile app UI" --body "..."
+```
+The web agent reviews and merges into `main`. Keep pushing to `mobile-ui`; the PR
+updates automatically.
+
+### Golden rules (do these and nothing breaks)
+- **Never `git add` or edit anything outside `mobile/`.** If a task seems to need
+  a `web/` or root change, leave a note in the PR for the web agent instead.
+- **Stay on `mobile-ui`.** Never commit to `main`.
+- **Work in your own clone/worktree**, not the web agent's directory.
+- Run the gates before every push (from repo root of your clone):
+  `pnpm -C mobile exec tsc --noEmit` and `pnpm exec biome check mobile` — both
+  clean. (`biome.json` is root-owned; run it read-only, don't edit it.)
 
 ---
 
