@@ -79,6 +79,36 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
   .cbar{flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:3px;height:100%}
   .cbar .e{border-radius:5px;background:linear-gradient(180deg,#8FE3B4,#4E9C77)}
   .cbar .s{border-radius:5px;background:linear-gradient(180deg,#8F87F1,#4B4681)}
+
+  /* Wallet connect (header) */
+  .wbtn{height:38px;padding:0 16px;border-radius:12px;border:1px solid rgba(211,206,255,0.4);background:linear-gradient(160deg,#CFC9FF,#9990E8);color:#14121F;font-size:12.5px;font-weight:600;display:flex;align-items:center;gap:8px;box-shadow:0 10px 24px -14px rgba(160,150,240,0.9)}
+  .wbtn:hover{filter:brightness(1.05)}
+  .wchip{height:38px;padding:0 8px 0 12px;border-radius:12px;border:1px solid rgba(255,255,255,0.09);background:rgba(255,255,255,0.045);backdrop-filter:blur(18px);display:flex;align-items:center;gap:10px;cursor:pointer}
+  .wchip:hover{background:rgba(255,255,255,0.075)}
+  .wchip .wbal{font-family:var(--mono);font-size:12.5px;font-variant-numeric:tabular-nums}
+  .wchip .waddr{font-family:var(--mono);font-size:11px;color:rgba(242,241,246,0.5);padding:4px 8px;border-radius:8px;background:rgba(255,255,255,0.05)}
+  .wchip .wcar{color:rgba(242,241,246,0.4);font-size:9px}
+  .wpop{position:absolute;top:46px;right:0;width:320px;z-index:60;border-radius:20px;border:1px solid rgba(255,255,255,0.09);background:rgba(18,18,22,0.94);backdrop-filter:blur(30px);box-shadow:0 30px 70px -30px rgba(0,0,0,0.95),inset 0 1px 0 rgba(255,255,255,0.06);padding:18px;animation:ottoRise .22s both}
+  .wpop .wa{font-family:var(--mono);font-size:12px;line-height:1.5;word-break:break-all;color:rgba(242,241,246,0.82);cursor:pointer;padding:11px 12px;border-radius:12px;border:1px solid rgba(255,255,255,0.07);background:rgba(255,255,255,0.03)}
+  .wpop .wa:hover{border-color:rgba(169,160,255,0.4);color:#F2F1F6}
+  .wtile{flex:1;padding:11px 13px;border-radius:14px;border:1px solid rgba(255,255,255,0.06);background:rgba(255,255,255,0.028)}
+  .wtile .k{font-size:9.5px;letter-spacing:0.07em;color:rgba(242,241,246,0.38)}
+  .wtile .v{font-family:var(--mono);font-size:16px;margin-top:4px;font-variant-numeric:tabular-nums}
+  .wact{width:100%;height:38px;border-radius:12px;border:1px solid rgba(255,255,255,0.09);background:rgba(255,255,255,0.045);color:#F2F1F6;font-size:12.5px;display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none}
+  .wact:hover{background:rgba(255,255,255,0.08);color:#F2F1F6}
+  .wact.pri{border-color:rgba(211,206,255,0.4);background:linear-gradient(160deg,#CFC9FF,#9990E8);color:#14121F;font-weight:600}
+  .wact.danger{border-color:rgba(255,140,130,0.3);background:rgba(255,120,110,0.1);color:#FFC2BB}
+  .wstat{display:flex;align-items:center;gap:8px;font-size:11.5px;color:rgba(242,241,246,0.55)}
+  .wstat .dot{width:7px;height:7px;border-radius:50%;flex:none}
+
+  /* Budget chooser */
+  .bLbl{font-size:11px;letter-spacing:0.08em;color:rgba(242,241,246,0.4)}
+  .bchip{height:34px;padding:0 13px;border-radius:11px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);color:rgba(242,241,246,0.62);font-family:var(--mono);font-size:12.5px;font-variant-numeric:tabular-nums}
+  .bchip:hover{color:#F2F1F6;background:rgba(255,255,255,0.06)}
+  .bchip.on{color:#F2F1F6;background:rgba(169,160,255,0.16);border-color:rgba(169,160,255,0.34)}
+  .bcustom{display:flex;align-items:center;gap:4px;height:34px;padding:0 11px;border-radius:11px;border:1px solid rgba(255,255,255,0.08);background:rgba(10,10,11,0.5);color:rgba(242,241,246,0.5);font-family:var(--mono);font-size:12.5px}
+  .bcustom input{width:52px;background:transparent;border:none;outline:none;color:#F2F1F6;font-family:var(--mono);font-size:12.5px;font-variant-numeric:tabular-nums}
+  .bHint{font-size:11px;color:rgba(242,241,246,0.32)}
 </style>
 </head>
 <body>
@@ -115,10 +145,19 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
         <div class="pageSub" id="pageSub">Agents hiring agents — Otto is taking 4 gigs and selling 6 skills.</div>
       </div>
       <div style="display:flex;align-items:center;gap:10px">
-        <a href="/pay" class="hchip" style="text-decoration:none;color:#14121F;background:linear-gradient(160deg,#CFC9FF,#9990E8);border:none;font-weight:600">⚡ Try live x402</a>
         <div class="hchip"><span style="width:6px;height:6px;border-radius:50%;background:#8FE3B4"></span><span id="netChip">USDC · Algorand</span></div>
-        <div class="hchip">⌘K &nbsp;Ask Otto</div>
-        <div class="bell"><div style="width:13px;height:13px;border:1.6px solid rgba(242,241,246,0.55);border-radius:4px 4px 6px 6px"></div><span style="position:absolute;top:9px;right:10px;width:6px;height:6px;border-radius:50%;background:#A9A0FF;box-shadow:0 0 0 2px #0A0A0B"></span></div>
+        <div id="walletWrap" style="position:relative">
+          <button id="walletBtn" class="wbtn">
+            <span style="width:6px;height:6px;border-radius:50%;background:#14121F;opacity:0.55"></span>Connect wallet
+          </button>
+          <div id="walletChip" class="wchip" style="display:none">
+            <span class="wstat"><span class="dot" id="wchipDot" style="background:#8FE3B4"></span></span>
+            <span class="wbal" id="wchipBal">—</span>
+            <span class="waddr" id="wchipAddr">—</span>
+            <span class="wcar">▾</span>
+          </div>
+          <div id="walletPop" class="wpop" style="display:none"></div>
+        </div>
       </div>
     </header>
 
@@ -138,13 +177,24 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
             <div style="display:flex;align-items:center;gap:10px;padding:11px 15px;border-radius:15px;border:1px solid rgba(255,255,255,0.07);background:rgba(255,255,255,0.03)"><div><div style="font-size:10.5px;color:rgba(242,241,246,0.42);letter-spacing:0.05em">NET</div><div class="mono" id="heroNet" style="font-size:16px;margin-top:2px">—</div></div></div>
             <div style="margin-left:auto;display:flex;align-items:center;gap:9px"><button class="btnGhost" id="earnBtn">Simulate a client</button></div>
           </div>
-          <div style="position:relative;display:flex;gap:10px;margin-top:20px;flex-wrap:wrap">
-            <input id="goalInput" placeholder='Give Otto a task — try "book a trip to Belgium, cheapest"' style="flex:1;min-width:260px;height:46px;background:rgba(10,10,11,0.5);border:1px solid rgba(255,255,255,0.1);border-radius:14px;color:#F2F1F6;font-family:inherit;font-size:13.5px;padding:0 16px;outline:none" />
-            <select id="budgetSel" style="height:46px;background:rgba(10,10,11,0.5);border:1px solid rgba(255,255,255,0.1);border-radius:14px;color:#F2F1F6;font-family:inherit;font-size:12.5px;padding:0 12px;outline:none">
-              <option value="0.10">budget $0.10</option>
-              <option value="0.02">budget $0.02 · trips the firewall</option>
-            </select>
-            <button class="btnPri" id="runBtn" style="height:46px">Run Otto</button>
+          <div style="position:relative;margin-top:24px;padding-top:20px;border-top:1px solid rgba(255,255,255,0.06)">
+            <div style="font-size:13px;font-weight:600;letter-spacing:-0.01em">Make an agent complete something for you</div>
+            <div style="font-size:12px;color:rgba(242,241,246,0.4);margin-top:3px">Describe any goal. Otto plans it, hires specialist agents, and pays each one per task — never over your budget.</div>
+            <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
+              <input id="goalInput" placeholder='e.g. "book a trip to Belgium, cheapest" or "summarize this contract"' style="flex:1;min-width:280px;height:48px;background:rgba(10,10,11,0.5);border:1px solid rgba(255,255,255,0.1);border-radius:14px;color:#F2F1F6;font-family:inherit;font-size:13.5px;padding:0 16px;outline:none" />
+              <button class="btnPri" id="runBtn" style="height:48px">Run Otto →</button>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:13px;flex-wrap:wrap">
+              <span class="bLbl">BUDGET</span>
+              <div id="budgetChips" style="display:flex;gap:6px">
+                <button class="bchip" data-budget="0.50">$0.50</button>
+                <button class="bchip on" data-budget="2">$2</button>
+                <button class="bchip" data-budget="5">$5</button>
+                <button class="bchip" data-budget="10">$10</button>
+              </div>
+              <div class="bcustom">$<input id="budgetInput" type="number" min="0.01" step="0.01" value="2.00" /></div>
+              <span class="bHint" id="budgetHint">The spend firewall stops Otto before any task exceeds this.</span>
+            </div>
           </div>
         </section>
 
@@ -332,7 +382,9 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
 
 <script>
 var state = { page:'market', tab:'hiring', tick:0, filter:'all', rules:[true,true,false,true,true],
-  agents:[], task:null, taskTimer:null, feedLive:false, counts:null, policy:null, liveInfo:null, ledgerRows:[] };
+  agents:[], task:null, taskTimer:null, feedLive:false, counts:null, policy:null, liveInfo:null, ledgerRows:[],
+  budget:2, walletConnected:false, liveStatus:null, popOpen:false, statusTimer:null };
+var ACCOUNT_EXPLORER = 'https://lora.algokit.io/testnet/account/';
 var NAV = [ {id:'market',label:'Marketplace',count:'18'}, {id:'task',label:'Active task',count:'1'}, {id:'wallet',label:'Wallet',count:''}, {id:'receipts',label:'Receipts',count:'204'}, {id:'rules',label:'Rules & limits',count:''} ];
 var TITLES = { market:'Marketplace', task:'Active task', wallet:'Wallet', receipts:'Receipts', rules:'Rules & limits' };
 var SUBS = {
@@ -597,6 +649,9 @@ document.addEventListener('click', function(e){
   var sellBtn=e.target.closest('[data-sell]'); if(sellBtn){ simulateSale(); return; }
   var rule=e.target.closest('[data-rule]'); if(rule){ var i=parseInt(rule.getAttribute('data-rule'),10); state.rules[i]=!state.rules[i]; renderRules(); return; }
   var pol=e.target.closest('[data-policy]'); if(pol){ togglePolicy(pol.getAttribute('data-policy')); return; }
+  var bud=e.target.closest('[data-budget]'); if(bud){ setBudget(parseFloat(bud.getAttribute('data-budget')), true); return; }
+  // close the wallet popover on any outside click
+  if (state.popOpen && !e.target.closest('#walletWrap')){ state.popOpen=false; document.getElementById('walletPop').style.display='none'; }
 });
 
 // ── Real data ────────────────────────────────────────────────────────────────
@@ -668,7 +723,7 @@ function hire(serviceId, elBtn){
 function runTask(){
   var goal = document.getElementById('goalInput').value.trim();
   if (!goal){ document.getElementById('goalInput').focus(); return; }
-  var budget = parseFloat(document.getElementById('budgetSel').value);
+  var budget = state.budget > 0 ? state.budget : 2;
   var btn = document.getElementById('runBtn'); btn.textContent = 'Otto is working…';
   fetch('/api/tasks', { method:'POST', headers:{'content-type':'application/json'},
     body: JSON.stringify({ goal: goal, budgetUsdc: budget }) })
@@ -800,7 +855,7 @@ function pollPolicy(){
 }
 function pollLiveInfo(){
   fetch('/api/live/info').then(function(r){return r.json();}).then(function(li){
-    state.liveInfo = li; renderRails();
+    state.liveInfo = li; renderRails(); renderWallet();
     document.getElementById('setNet').textContent = 'Algorand TestNet';
     document.getElementById('setAsset').textContent = 'ASA '+li.assetId;
     document.getElementById('cardAddr').textContent = li.receiver ? (li.receiver.slice(0,10)+'…'+li.receiver.slice(-8)) : 'set RECEIVER_ADDRESS';
@@ -846,14 +901,128 @@ function simulateSale(){
     pollWallet(); pollLedger();
   }).catch(function(){});
 }
+// ── Budget chooser ───────────────────────────────────────────────────────────
+function setBudget(v, fromChip){
+  if (!isFinite(v) || v<=0) return;
+  state.budget = v;
+  var chips = document.querySelectorAll('#budgetChips .bchip');
+  var matched = false;
+  for (var i=0;i<chips.length;i++){
+    var on = parseFloat(chips[i].getAttribute('data-budget'))===v;
+    chips[i].className = 'bchip'+(on?' on':''); if (on) matched=true;
+  }
+  if (fromChip) document.getElementById('budgetInput').value = v.toFixed(2);
+  else if (!matched){ for (var j=0;j<chips.length;j++) chips[j].className='bchip'; }
+  var hint = document.getElementById('budgetHint');
+  if (state.policy && v > state.policy.sessionBudgetUsdc)
+    hint.innerHTML = '⚠ Above your $'+state.policy.sessionBudgetUsdc.toFixed(2)+' session ceiling — raise it in Rules & limits.';
+  else hint.textContent = 'The spend firewall stops Otto before any task exceeds this.';
+}
+document.getElementById('budgetInput').addEventListener('input', function(){
+  var v = parseFloat(this.value); if (isFinite(v) && v>0) setBudget(v, false);
+});
+
+// ── Wallet connect: Otto's real on-chain Algorand account ────────────────────
+function fmtAddr(a){ return a ? (a.slice(0,5)+'…'+a.slice(-4)) : '—'; }
+function connectWallet(){
+  state.walletConnected = true;
+  try { localStorage.setItem('ottoWalletConnected','1'); } catch(_){}
+  pollLiveStatus();
+  renderWallet();
+  toast('✓ Wallet connected — Otto\\u2019s TestNet account is live');
+}
+function disconnectWallet(){
+  state.walletConnected = false; state.popOpen = false;
+  try { localStorage.removeItem('ottoWalletConnected'); } catch(_){}
+  document.getElementById('walletPop').style.display='none';
+  renderWallet();
+}
+function renderWallet(){
+  var btn = document.getElementById('walletBtn');
+  var chip = document.getElementById('walletChip');
+  var li = state.liveInfo || {}, s = state.liveStatus;
+  if (!state.walletConnected || !li.receiver){
+    btn.style.display='flex'; chip.style.display='none';
+    document.getElementById('walletPop').style.display='none';
+    return;
+  }
+  btn.style.display='none'; chip.style.display='flex';
+  document.getElementById('wchipAddr').textContent = fmtAddr(li.receiver);
+  var ready = s && s.funded && s.optedIn;
+  document.getElementById('wchipDot').style.background = s ? (ready ? '#8FE3B4' : '#FFCE7A') : 'rgba(242,241,246,0.4)';
+  document.getElementById('wchipBal').textContent = s ? (s.usdc.toFixed(2)+' USDC') : '· · ·';
+  if (state.popOpen) renderPop();
+}
+function statLine(ok, label, warn){
+  var col = ok ? '#8FE3B4' : (warn?'#FFCE7A':'rgba(242,241,246,0.35)');
+  return '<div class="wstat"><span class="dot" style="background:'+col+'"></span>'+(ok?'✓ ':'○ ')+label+'</div>';
+}
+function renderPop(){
+  var pop = document.getElementById('walletPop');
+  var li = state.liveInfo || {}, s = state.liveStatus || {funded:false,optedIn:false,algo:0,usdc:0};
+  var addr = li.receiver || '';
+  var canOptIn = s.funded && !s.optedIn;
+  var h = ''
+    + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">'
+    +   '<div style="font-size:13px;font-weight:600">Otto\\u2019s account</div>'
+    +   '<span style="font-size:10px;letter-spacing:0.05em;padding:3px 8px;border-radius:7px;color:#C8C1FF;background:rgba(169,160,255,0.12);border:1px solid rgba(169,160,255,0.24)">ALGORAND TESTNET</span>'
+    + '</div>'
+    + '<div class="wa" id="copyAddr" title="Click to copy">'+esc(addr)+'</div>'
+    + '<div style="display:flex;gap:9px;margin-top:12px">'
+    +   '<div class="wtile"><div class="k">USDC BALANCE</div><div class="v" style="color:#A9EFC8">'+s.usdc.toFixed(2)+'</div></div>'
+    +   '<div class="wtile"><div class="k">ALGO (GAS)</div><div class="v">'+s.algo.toFixed(3)+'</div></div>'
+    + '</div>'
+    + '<div style="display:flex;flex-direction:column;gap:8px;margin:14px 0">'
+    +   statLine(s.funded, s.funded?'Funded with test ALGO':'Not funded — use the faucet', !s.funded)
+    +   statLine(s.optedIn, s.optedIn?'Opted in to USDC':'Not opted in to USDC', s.funded&&!s.optedIn)
+    + '</div>'
+    + '<div style="display:flex;flex-direction:column;gap:8px">'
+    +   (canOptIn ? '<button class="wact pri" id="popOptin">Opt in to USDC</button>' : '')
+    +   '<a class="wact" href="https://bank.testnet.algorand.network/" target="_blank" rel="noopener">Fund with test ALGO ↗</a>'
+    +   '<a class="wact" href="'+ACCOUNT_EXPLORER+esc(addr)+'" target="_blank" rel="noopener">View on explorer ↗</a>'
+    +   '<a class="wact" href="/pay" target="_blank" rel="noopener">Pay Otto live (Pera / Lute) ↗</a>'
+    +   '<button class="wact danger" id="popDisconnect">Disconnect</button>'
+    + '</div>';
+  pop.innerHTML = h;
+  document.getElementById('copyAddr').addEventListener('click', function(){
+    try { navigator.clipboard.writeText(addr); toast('✓ Address copied'); } catch(_){}
+  });
+  document.getElementById('popDisconnect').addEventListener('click', disconnectWallet);
+  var opt = document.getElementById('popOptin');
+  if (opt) opt.addEventListener('click', function(){
+    opt.textContent='Opting in…'; opt.disabled=true;
+    fetch('/api/live/optin',{method:'POST'}).then(function(r){return r.json();}).then(function(res){
+      if (res.ok){ toast('✓ Opted in to USDC · tx <span class="mono">'+shortTx(res.txId)+'</span>'); pollLiveStatus(); }
+      else { toast('Opt-in failed — '+esc(res.detail||'fund the account first')); opt.textContent='Opt in to USDC'; opt.disabled=false; }
+    }).catch(function(){ toast('Opt-in failed — is the account funded?'); opt.textContent='Opt in to USDC'; opt.disabled=false; });
+  });
+}
+function togglePop(){
+  state.popOpen = !state.popOpen;
+  var pop = document.getElementById('walletPop');
+  if (state.popOpen){ renderPop(); pop.style.display='block'; } else pop.style.display='none';
+}
+function pollLiveStatus(){
+  if (!state.walletConnected) return;
+  fetch('/api/live/status').then(function(r){return r.json();}).then(function(s){
+    state.liveStatus = s; renderWallet();
+  }).catch(function(){});
+}
+document.getElementById('walletBtn').addEventListener('click', connectWallet);
+document.getElementById('walletChip').addEventListener('click', togglePop);
+
 document.getElementById('runBtn').addEventListener('click', runTask);
 document.getElementById('goalInput').addEventListener('keydown', function(e){ if(e.key==='Enter') runTask(); });
 document.getElementById('earnBtn').addEventListener('click', simulateSale);
 
 renderNav(); renderMktChart(); renderGigs(); renderFeed(); renderSteps(); renderTaskReceipts(); renderRails(); renderLedger(); renderRules();
+try { state.walletConnected = localStorage.getItem('ottoWalletConnected')==='1'; } catch(_){}
+setBudget(2, true); renderWallet();
 setInterval(function(){ state.tick++; if(!state.feedLive) renderFeed(); }, 3800);
 setInterval(function(){ pollWallet(); pollLedger(); pollStats(); }, 4000);
+setInterval(pollLiveStatus, 6000);
 pollWallet(); pollLedger(); pollStats(); pollPolicy(); pollLiveInfo();
+if (state.walletConnected) pollLiveStatus();
 loadMarketplace(); setTimeout(renderTrusted, 900);
 </script>
 
