@@ -1,7 +1,9 @@
 import { LinearGradient } from "expo-linear-gradient";
-import { useState } from "react";
+import { useRouter } from "expo-router";
+import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
+import { money, otto } from "../../src/api";
 import { Mono, Screen, ScreenTitle, Tag } from "../../src/components/ui";
 import { type CatalogModel, MODEL_CATALOG, MODEL_SPECS } from "../../src/modelsCatalog";
 import { c, font, grad } from "../../src/theme";
@@ -12,8 +14,32 @@ import { c, font, grad } from "../../src/theme";
  * job and pays it per call over x402.
  */
 export default function Marketplace() {
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [spec, setSpec] = useState<string>("All");
+  // Real hireable x402 services — each model card settles its hire through one,
+  // so tapping a model still moves real USDC end-to-end.
+  const [hireables, setHireables] = useState<{ id: string; price: string }[]>([]);
+
+  useEffect(() => {
+    otto
+      .marketplace()
+      .then((m) =>
+        setHireables(
+          m.agents.filter((a) => !a.sell).map((a) => ({ id: a.id, price: money(a.price.usdc) })),
+        ),
+      )
+      .catch(() => {});
+  }, []);
+
+  const openHire = (m: CatalogModel, idx: number) => {
+    if (!hireables.length) return;
+    const svc = hireables[idx % hireables.length];
+    router.push({
+      pathname: "/sheet/hire",
+      params: { svc: svc.id, agent: m.name, price: svc.price, unit: "per task", sell: "0" },
+    });
+  };
 
   const q = query.trim().toLowerCase();
   const models = MODEL_CATALOG.filter((m) => spec === "All" || m.spec === spec).filter(
@@ -69,8 +95,8 @@ export default function Marketplace() {
       </ScrollView>
 
       <View style={{ gap: 11, marginTop: 14 }}>
-        {models.map((m) => (
-          <ModelCard key={m.id} m={m} />
+        {models.map((m, i) => (
+          <ModelCard key={m.id} m={m} onPress={() => openHire(m, i)} />
         ))}
         {models.length === 0 && <Text style={s.empty}>No models match “{query}”.</Text>}
       </View>
@@ -89,40 +115,46 @@ const initials = (provider: string) =>
 const fmtPrice = (n: number) => (n === 0 ? "free" : `$${n < 0.01 ? n.toFixed(3) : n.toFixed(2)}`);
 const fmtCtx = (n: number) => (n >= 1000000 ? `${n / 1000000}M` : `${Math.round(n / 1000)}K`);
 
-function ModelCard({ m }: { m: CatalogModel }) {
+function ModelCard({ m, onPress }: { m: CatalogModel; onPress: () => void }) {
   return (
-    <LinearGradient
-      colors={grad.card}
-      start={{ x: 0.1, y: 0 }}
-      end={{ x: 0.9, y: 1 }}
-      style={s.card}
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => pressed && { transform: [{ scale: 0.985 }] }}
     >
-      <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 12 }}>
-        <View style={s.avatar}>
-          <Text style={s.avatarText}>{initials(m.provider)}</Text>
+      <LinearGradient
+        colors={grad.card}
+        start={{ x: 0.1, y: 0 }}
+        end={{ x: 0.9, y: 1 }}
+        style={s.card}
+      >
+        <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 12 }}>
+          <View style={s.avatar}>
+            <Text style={s.avatarText}>{initials(m.provider)}</Text>
+          </View>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={s.title} numberOfLines={1}>
+              {m.name}
+            </Text>
+            <Mono style={s.modelId}>{m.id}</Mono>
+          </View>
+          <Tag label={m.spec.toUpperCase()} kind={m.inM === 0 ? "running" : "accent"} />
         </View>
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={s.title} numberOfLines={1}>
-            {m.name}
-          </Text>
-          <Mono style={s.modelId}>{m.id}</Mono>
+        <View style={s.cardFoot}>
+          <Mono color={m.inM === 0 ? c.earnBright : c.text} style={{ fontSize: 14 }}>
+            {fmtPrice(m.inM)}
+          </Mono>
+          <Text style={s.unit}>/M in</Text>
+          <Mono color={c.spend} style={{ fontSize: 14, marginLeft: 8 }}>
+            {fmtPrice(m.outM)}
+          </Mono>
+          <Text style={s.unit}>/M out</Text>
+          <Mono style={{ marginLeft: "auto", fontSize: 11, color: c.faint }}>
+            {fmtCtx(m.ctx)} ctx
+          </Mono>
+          <Text style={s.hireCta}>Hire</Text>
         </View>
-        <Tag label={m.spec.toUpperCase()} kind={m.inM === 0 ? "running" : "accent"} />
-      </View>
-      <View style={s.cardFoot}>
-        <Mono color={m.inM === 0 ? c.earnBright : c.text} style={{ fontSize: 14 }}>
-          {fmtPrice(m.inM)}
-        </Mono>
-        <Text style={s.unit}>/M in</Text>
-        <Mono color={c.spend} style={{ fontSize: 14, marginLeft: 8 }}>
-          {fmtPrice(m.outM)}
-        </Mono>
-        <Text style={s.unit}>/M out</Text>
-        <Mono style={{ marginLeft: "auto", fontSize: 11, color: c.faint }}>
-          {fmtCtx(m.ctx)} ctx
-        </Mono>
-      </View>
-    </LinearGradient>
+      </LinearGradient>
+    </Pressable>
   );
 }
 
@@ -184,6 +216,7 @@ const s = StyleSheet.create({
     borderTopColor: c.hairline,
   },
   unit: { color: c.dim, fontSize: 10.5, fontFamily: font.regular },
+  hireCta: { color: c.accent2, fontSize: 12, fontFamily: font.medium, marginLeft: 10 },
 
   empty: {
     color: c.faint,
