@@ -30,6 +30,19 @@ export class SpendGuard {
     this.taskBudgetMicro = micro;
   }
 
+  setSessionBudget(micro: number) {
+    this.sessionBudgetMicro = micro;
+  }
+
+  /** Live limits + usage — surfaced on the dashboard's autonomy panels. */
+  snapshot() {
+    return {
+      taskBudgetMicro: this.taskBudgetMicro,
+      sessionBudgetMicro: this.sessionBudgetMicro,
+      sessionSpentMicro: this.sessionSpentMicro,
+    };
+  }
+
   authorize(taskId: string, amountMicro: number): SpendDecision {
     const taskSoFar = this.taskSpent.get(taskId) ?? 0;
 

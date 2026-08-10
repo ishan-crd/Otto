@@ -98,8 +98,8 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
       <div class="autoCard">
         <div style="display:flex;align-items:center;gap:7px;margin-bottom:9px"><span class="liveDot"></span><span style="font-size:11px;color:rgba(242,241,246,0.62);letter-spacing:0.03em">AUTONOMY ON</span></div>
         <div style="font-size:12px;line-height:1.5;color:rgba(242,241,246,0.46)">Otto may spend up to</div>
-        <div class="mono" style="font-size:16px;font-weight:500;margin-top:3px">$50.00 <span style="font-size:11px;color:rgba(242,241,246,0.38)">/ day</span></div>
-        <div class="miniBar"><i style="width:23%"></i></div>
+        <div class="mono" style="font-size:16px;font-weight:500;margin-top:3px"><span id="ceilVal">$25.00</span> <span style="font-size:11px;color:rgba(242,241,246,0.38)">/ session</span></div>
+        <div class="miniBar"><i id="ceilBar" style="width:0%"></i></div>
       </div>
       <div class="userRow">
         <div class="userAv">MK</div>
@@ -116,7 +116,7 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
       </div>
       <div style="display:flex;align-items:center;gap:10px">
         <a href="/pay" class="hchip" style="text-decoration:none;color:#14121F;background:linear-gradient(160deg,#CFC9FF,#9990E8);border:none;font-weight:600">⚡ Try live x402</a>
-        <div class="hchip"><span style="width:6px;height:6px;border-radius:50%;background:#8FE3B4"></span><span>USDC · Base</span></div>
+        <div class="hchip"><span style="width:6px;height:6px;border-radius:50%;background:#8FE3B4"></span><span id="netChip">USDC · Algorand</span></div>
         <div class="hchip">⌘K &nbsp;Ask Otto</div>
         <div class="bell"><div style="width:13px;height:13px;border:1.6px solid rgba(242,241,246,0.55);border-radius:4px 4px 6px 6px"></div><span style="position:absolute;top:9px;right:10px;width:6px;height:6px;border-radius:50%;background:#A9A0FF;box-shadow:0 0 0 2px #0A0A0B"></span></div>
       </div>
@@ -226,29 +226,24 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
               <div style="font-size:11.5px;letter-spacing:0.1em;color:rgba(242,241,246,0.42)">AVAILABLE TO SPEND</div>
               <div class="mono" id="walletBal" style="font-size:42px;font-weight:500;letter-spacing:-0.035em;margin-top:10px;line-height:1">$4,182.90</div>
               <div style="display:flex;gap:22px;margin-top:22px">
-                <div><div style="font-size:10.5px;letter-spacing:0.05em;color:rgba(242,241,246,0.38)">IN ESCROW</div><div class="mono" style="font-size:17px;margin-top:4px;color:#C8C1FF">$18.40</div></div>
-                <div><div style="font-size:10.5px;letter-spacing:0.05em;color:rgba(242,241,246,0.38)">PENDING PAYOUTS</div><div class="mono" style="font-size:17px;margin-top:4px;color:#A9EFC8">$212.05</div></div>
-                <div><div style="font-size:10.5px;letter-spacing:0.05em;color:rgba(242,241,246,0.38)">LIFETIME EARNED</div><div class="mono" style="font-size:17px;margin-top:4px">$14,806.22</div></div>
+                <div><div style="font-size:10.5px;letter-spacing:0.05em;color:rgba(242,241,246,0.38)">IN ESCROW</div><div class="mono" id="wEscrow" style="font-size:17px;margin-top:4px;color:#C8C1FF">$0.00</div></div>
+                <div><div style="font-size:10.5px;letter-spacing:0.05em;color:rgba(242,241,246,0.38)">EARNED</div><div class="mono" id="wEarned" style="font-size:17px;margin-top:4px;color:#A9EFC8">$0.00</div></div>
+                <div><div style="font-size:10.5px;letter-spacing:0.05em;color:rgba(242,241,246,0.38)">NET</div><div class="mono" id="wNet" style="font-size:17px;margin-top:4px">$0.00</div></div>
               </div>
             </div>
             <div style="width:270px;flex:none;border-radius:22px;padding:20px;border:1px solid rgba(255,255,255,0.13);background:linear-gradient(150deg,#EFECFF,#B0A9E6 40%,#4A4568 78%,#D8D3F4);color:#15131F;box-shadow:0 20px 48px -22px rgba(150,140,230,0.65)">
-              <div style="font-size:10.5px;letter-spacing:0.12em;opacity:0.62">AGENT CARD</div>
-              <div class="mono" style="font-size:16px;letter-spacing:0.09em;margin-top:34px">•••• •••• •••• 4471</div>
-              <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:16px"><div><div style="font-size:9.5px;opacity:0.55;letter-spacing:0.08em">HOLDER</div><div style="font-size:12.5px;font-weight:600;margin-top:2px">OTTO · agent</div></div><div class="mono" style="font-size:12px">09/29</div></div>
+              <div style="font-size:10.5px;letter-spacing:0.12em;opacity:0.62">AGENT ACCOUNT</div>
+              <div class="mono" id="cardAddr" style="font-size:15px;letter-spacing:0.06em;margin-top:34px">not configured</div>
+              <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:16px"><div><div style="font-size:9.5px;opacity:0.55;letter-spacing:0.08em">HOLDER</div><div style="font-size:12.5px;font-weight:600;margin-top:2px">OTTO · agent</div></div><div class="mono" id="cardNet" style="font-size:12px">TestNet</div></div>
             </div>
           </div>
         </section>
 
         <section class="gcard" style="padding:22px">
           <div style="font-size:14px;font-weight:500">Where the money goes</div>
-          <div style="display:flex;height:9px;border-radius:6px;overflow:hidden;margin-top:18px;gap:2px"><div style="width:38%;background:linear-gradient(90deg,#8F87F1,#B3AAFF)"></div><div style="width:26%;background:linear-gradient(90deg,#6E68B8,#8F87F1)"></div><div style="width:21%;background:linear-gradient(90deg,#4C4880,#6E68B8)"></div><div style="width:15%;background:rgba(255,255,255,0.14)"></div></div>
-          <div style="display:flex;flex-direction:column;gap:11px;margin-top:18px">
-            <div style="display:flex;align-items:center;gap:10px;font-size:12.5px"><span style="width:8px;height:8px;border-radius:3px;background:#B3AAFF"></span>Search &amp; discovery agents<span class="mono" style="margin-left:auto;color:rgba(242,241,246,0.72)">$282.04</span></div>
-            <div style="display:flex;align-items:center;gap:10px;font-size:12.5px"><span style="width:8px;height:8px;border-radius:3px;background:#8F87F1"></span>Booking &amp; fulfilment<span class="mono" style="margin-left:auto;color:rgba(242,241,246,0.72)">$193.00</span></div>
-            <div style="display:flex;align-items:center;gap:10px;font-size:12.5px"><span style="width:8px;height:8px;border-radius:3px;background:#6E68B8"></span>Verification &amp; compliance<span class="mono" style="margin-left:auto;color:rgba(242,241,246,0.72)">$155.82</span></div>
-            <div style="display:flex;align-items:center;gap:10px;font-size:12.5px"><span style="width:8px;height:8px;border-radius:3px;background:rgba(255,255,255,0.3)"></span>Network fees<span class="mono" style="margin-left:auto;color:rgba(242,241,246,0.72)">$111.32</span></div>
-          </div>
-          <div style="margin-top:18px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.06);font-size:11.5px;color:rgba(242,241,246,0.36);line-height:1.6">Otto's median cost per completed errand is <span class="mono" style="color:#C8C1FF">$1.08</span>, down 14% this month.</div>
+          <div id="mgBar" style="display:flex;height:9px;border-radius:6px;overflow:hidden;margin-top:18px;gap:2px"><div style="width:100%;background:rgba(255,255,255,0.1)"></div></div>
+          <div id="mgRows" style="display:flex;flex-direction:column;gap:11px;margin-top:18px"><div style="font-size:12px;color:rgba(242,241,246,0.4)">No outgoing payments yet — run a task.</div></div>
+          <div style="margin-top:18px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.06);font-size:11.5px;color:rgba(242,241,246,0.36);line-height:1.6">Computed live from Otto's settled ledger.</div>
         </section>
 
         <section class="gcard" style="grid-column:span 2;padding:22px 24px">
@@ -257,16 +252,16 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
         </section>
 
         <section class="hero" style="padding:22px 20px;background:linear-gradient(160deg,rgba(169,160,255,0.11),rgba(255,255,255,0.016))">
-          <div style="font-size:14px;font-weight:500">Auto top-up</div>
-          <div style="font-size:12px;color:rgba(242,241,246,0.4);margin-top:6px;line-height:1.55">Keep Otto liquid so tasks never stall mid-run.</div>
+          <div style="font-size:14px;font-weight:500">Settlement</div>
+          <div style="font-size:12px;color:rgba(242,241,246,0.4);margin-top:6px;line-height:1.55">Where Otto's x402 micropayments settle.</div>
           <div style="margin-top:18px;padding:15px;border-radius:18px;border:1px solid rgba(255,255,255,0.07);background:rgba(255,255,255,0.03)">
-            <div style="font-size:11px;letter-spacing:0.06em;color:rgba(242,241,246,0.38)">WHEN BALANCE FALLS BELOW</div>
-            <div class="mono" style="font-size:20px;margin-top:6px">$500.00</div>
+            <div style="font-size:11px;letter-spacing:0.06em;color:rgba(242,241,246,0.38)">NETWORK</div>
+            <div class="mono" id="setNet" style="font-size:16px;margin-top:6px">—</div>
             <div style="height:1px;background:rgba(255,255,255,0.07);margin:14px 0"></div>
-            <div style="font-size:11px;letter-spacing:0.06em;color:rgba(242,241,246,0.38)">TOP UP FROM MERCURY ···8821</div>
-            <div class="mono" style="font-size:20px;margin-top:6px;color:#A9EFC8">+$2,500.00</div>
+            <div style="font-size:11px;letter-spacing:0.06em;color:rgba(242,241,246,0.38)">USDC ASSET</div>
+            <div class="mono" id="setAsset" style="font-size:16px;margin-top:6px;color:#A9EFC8">—</div>
           </div>
-          <button class="btnGhost" style="width:100%;margin-top:14px">Edit rule</button>
+          <a href="/pay" class="btnGhost" style="width:100%;margin-top:14px;display:flex;align-items:center;justify-content:center;text-decoration:none;color:#F2F1F6">Pay Otto live (connect wallet) →</a>
         </section>
       </div>
     </section>
@@ -286,12 +281,12 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
           <section class="gcard" style="padding:22px 20px">
             <div style="font-size:14px;font-weight:500">This month</div>
             <div style="display:flex;flex-direction:column;gap:13px;margin-top:16px">
-              <div style="display:flex;justify-content:space-between;font-size:12.5px"><span style="color:rgba(242,241,246,0.44)">Micropayments out</span><span class="mono">1,842</span></div>
-              <div style="display:flex;justify-content:space-between;font-size:12.5px"><span style="color:rgba(242,241,246,0.44)">Micropayments in</span><span class="mono">3,109</span></div>
-              <div style="display:flex;justify-content:space-between;font-size:12.5px"><span style="color:rgba(242,241,246,0.44)">Median settlement</span><span class="mono">1.9s</span></div>
+              <div style="display:flex;justify-content:space-between;font-size:12.5px"><span style="color:rgba(242,241,246,0.44)">Micropayments out</span><span class="mono" id="mOut">0</span></div>
+              <div style="display:flex;justify-content:space-between;font-size:12.5px"><span style="color:rgba(242,241,246,0.44)">Micropayments in</span><span class="mono" id="mIn">0</span></div>
+              <div style="display:flex;justify-content:space-between;font-size:12.5px"><span style="color:rgba(242,241,246,0.44)">In escrow now</span><span class="mono" id="mEscrow">$0.00</span></div>
               <div style="display:flex;justify-content:space-between;font-size:12.5px"><span style="color:rgba(242,241,246,0.44)">Disputes</span><span class="mono" style="color:#A9EFC8">0</span></div>
               <div style="height:1px;background:rgba(255,255,255,0.07)"></div>
-              <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:12.5px">Net</span><span class="mono" style="font-size:20px;color:#A9EFC8">+$542.42</span></div>
+              <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:12.5px">Net</span><span class="mono" id="mNet" style="font-size:20px;color:#A9EFC8">$0.00</span></div>
             </div>
           </section>
           <section class="gcard" style="padding:22px 20px">
@@ -314,26 +309,20 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
         <div style="display:flex;flex-direction:column;gap:18px">
           <section class="hero" style="padding:22px;background:linear-gradient(160deg,rgba(169,160,255,0.12),rgba(255,255,255,0.02) 62%)">
             <div class="orb" style="right:-70px;top:-90px;width:230px;height:230px;background:conic-gradient(from 170deg,#141420,#6A6389,#E4E0F6,#8C86AF,#141420);filter:blur(24px);opacity:.45"></div>
-            <div style="position:relative;font-size:11px;letter-spacing:0.09em;color:rgba(242,241,246,0.44)">DAILY SPEND CEILING</div>
-            <div class="mono" style="position:relative;font-size:34px;margin-top:10px">$50.00</div>
-            <div style="position:relative;margin-top:16px;height:5px;border-radius:5px;background:rgba(255,255,255,0.09);overflow:hidden"><div style="width:23%;height:100%;border-radius:5px;background:linear-gradient(90deg,#8F87F1,#DAD5FF)"></div></div>
-            <div class="mono" style="position:relative;display:flex;justify-content:space-between;margin-top:9px;font-size:11px;color:rgba(242,241,246,0.36)"><span>$11.40 used today</span><span>resets 00:00 CET</span></div>
+            <div style="position:relative;font-size:11px;letter-spacing:0.09em;color:rgba(242,241,246,0.44)">SESSION SPEND CEILING</div>
+            <div class="mono" id="ceilBig" style="position:relative;font-size:34px;margin-top:10px">$25.00</div>
+            <div style="position:relative;margin-top:16px;height:5px;border-radius:5px;background:rgba(255,255,255,0.09);overflow:hidden"><div id="ceilBigBar" style="width:0%;height:100%;border-radius:5px;background:linear-gradient(90deg,#8F87F1,#DAD5FF);transition:width .4s"></div></div>
+            <div class="mono" style="position:relative;display:flex;justify-content:space-between;margin-top:9px;font-size:11px;color:rgba(242,241,246,0.36)"><span id="ceilUsed">$0.00 used</span><span id="ceilEdit" style="color:#B3AAFF;cursor:pointer">edit ceiling</span></div>
           </section>
           <section class="gcard" style="padding:22px 20px">
             <div style="font-size:14px;font-weight:500">Trusted counterparties</div>
             <div style="font-size:12px;color:rgba(242,241,246,0.38);margin-top:6px;line-height:1.55">Agents Otto can pay without a per-task check.</div>
-            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:16px">
-              <span style="padding:7px 12px;border-radius:11px;border:1px solid rgba(169,160,255,0.22);background:rgba(169,160,255,0.1);font-size:12px;color:#C8C1FF">Skyscout</span>
-              <span style="padding:7px 12px;border-radius:11px;border:1px solid rgba(169,160,255,0.22);background:rgba(169,160,255,0.1);font-size:12px;color:#C8C1FF">Nomad Concierge</span>
-              <span style="padding:7px 12px;border-radius:11px;border:1px solid rgba(169,160,255,0.22);background:rgba(169,160,255,0.1);font-size:12px;color:#C8C1FF">Ledgerly</span>
-              <span style="padding:7px 12px;border-radius:11px;border:1px solid rgba(169,160,255,0.22);background:rgba(169,160,255,0.1);font-size:12px;color:#C8C1FF">Chronos</span>
-              <span style="padding:7px 12px;border-radius:11px;border:1px dashed rgba(255,255,255,0.16);font-size:12px;color:rgba(242,241,246,0.44);cursor:pointer">+ Add</span>
-            </div>
+            <div id="trusted" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:16px"></div>
           </section>
           <section style="border-radius:26px;border:1px solid rgba(255,110,110,0.16);background:linear-gradient(160deg,rgba(255,120,120,0.07),rgba(255,255,255,0.014));backdrop-filter:blur(30px);padding:22px 20px">
             <div style="font-size:14px;font-weight:500;color:#FFB3AC">Kill switch</div>
             <div style="font-size:12px;color:rgba(242,241,246,0.38);margin-top:6px;line-height:1.55">Freezes the wallet, cancels open escrows, and refunds unstarted gigs.</div>
-            <button style="width:100%;height:42px;margin-top:16px;border-radius:14px;border:1px solid rgba(255,140,130,0.32);background:rgba(255,120,110,0.12);color:#FFC2BB;font-size:13px;font-weight:500">Stop Otto now</button>
+            <button id="killBtn" style="width:100%;height:42px;margin-top:16px;border-radius:14px;border:1px solid rgba(255,140,130,0.32);background:rgba(255,120,110,0.12);color:#FFC2BB;font-size:13px;font-weight:500;cursor:pointer">Stop Otto now</button>
           </section>
         </div>
       </div>
@@ -343,14 +332,14 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
 
 <script>
 var state = { page:'market', tab:'hiring', tick:0, filter:'all', rules:[true,true,false,true,true],
-  agents:[], task:null, taskTimer:null, feedLive:false };
+  agents:[], task:null, taskTimer:null, feedLive:false, counts:null, policy:null, liveInfo:null, ledgerRows:[] };
 var NAV = [ {id:'market',label:'Marketplace',count:'18'}, {id:'task',label:'Active task',count:'1'}, {id:'wallet',label:'Wallet',count:''}, {id:'receipts',label:'Receipts',count:'204'}, {id:'rules',label:'Rules & limits',count:''} ];
 var TITLES = { market:'Marketplace', task:'Active task', wallet:'Wallet', receipts:'Receipts', rules:'Rules & limits' };
 var SUBS = {
   market:'Agents hiring agents — Otto is taking 4 gigs and selling 6 skills.',
   task:'Otto is executing a trip booking and settling each sub-agent per task.',
   wallet:'Balance, rails and the reserve Otto draws from.',
-  receipts:'4,951 settled micropayments · every one signed and refundable.',
+  receipts:'Every settled micropayment, signed and auditable on-chain.',
   rules:'The boundaries Otto operates inside. Change them any time.'
 };
 var HIRES = [
@@ -442,13 +431,20 @@ function feedRow(f){
 function renderNav(){
   document.getElementById('nav').innerHTML = NAV.map(function(n){
     var on = state.page===n.id;
-    return '<div class="navItem'+(on?' on':'')+'" data-page="'+n.id+'"><span class="navDot"></span><span>'+n.label+'</span><span class="navBadge">'+n.count+'</span></div>';
+    var count = state.counts && state.counts[n.id]!=null ? state.counts[n.id] : n.count;
+    return '<div class="navItem'+(on?' on':'')+'" data-page="'+n.id+'"><span class="navDot"></span><span>'+n.label+'</span><span class="navBadge">'+count+'</span></div>';
   }).join('');
 }
-function renderMktChart(){
-  document.getElementById('mktChart').innerHTML = MKT_CHART.map(function(c,i){
-    var box = i===6 ? '<div style="position:absolute;inset:-6px -7px;border-radius:11px;border:1px solid rgba(255,255,255,0.09);background:rgba(255,255,255,0.04)"></div>' : '';
-    return '<div class="cbar" style="position:relative">'+box+'<i class="e" style="height:'+c[0]+'px;position:relative"></i><i class="s" style="height:'+c[1]+'px;position:relative"></i></div>';
+function renderMktChart(real){
+  var data;
+  if (real && real.length){
+    var max = 1;
+    for (var i=0;i<real.length;i++) max = Math.max(max, real[i].earnedMicro, real[i].spentMicro);
+    data = real.map(function(b){ return [Math.round(96*b.earnedMicro/max), Math.round(96*b.spentMicro/max)]; });
+  } else data = MKT_CHART;
+  document.getElementById('mktChart').innerHTML = data.map(function(c,i){
+    var box = i===data.length-2 ? '<div style="position:absolute;inset:-6px -7px;border-radius:11px;border:1px solid rgba(255,255,255,0.09);background:rgba(255,255,255,0.04)"></div>' : '';
+    return '<div class="cbar" style="position:relative">'+box+'<i class="e" style="height:'+Math.max(c[0],2)+'px;position:relative"></i><i class="s" style="height:'+Math.max(c[1],2)+'px;position:relative"></i></div>';
   }).join('');
 }
 function gigsSource(){
@@ -515,14 +511,26 @@ function renderSteps(data){
 function renderTaskReceipts(data){ document.getElementById('taskReceipts').innerHTML = (data || TASK_RECEIPTS).map(function(r){
   return '<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.045)"><div style="'+iconStyle(r.dir)+'">'+(r.dir==='in'?'↑':'↓')+'</div><div style="flex:1;min-width:0"><div style="font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(r.label)+'</div><div class="mono" style="font-size:10px;color:rgba(242,241,246,0.28);margin-top:3px">'+r.tx+' · '+r.time+'</div></div><div style="'+amtStyle(r.dir)+'">'+r.amount+'</div></div>';
 }).join(''); }
-function renderRails(){ document.getElementById('rails').innerHTML = RAILS.map(function(r){
+function railData(){
+  if (!state.liveInfo) return RAILS;
+  var li = state.liveInfo;
+  var recv = li.receiver ? (li.receiver.slice(0,6)+'…'+li.receiver.slice(-6)) : 'not configured';
+  return [
+    { name:'Algorand '+(li.enabled?'TestNet':'(configure)'), meta:(li.algodServer||'').replace('https://',''), glyph:'◈', stateLabel: li.enabled?'ACTIVE':'SETUP', ok: !!li.enabled },
+    { name:'USDC · ASA '+li.assetId, meta:'settlement asset · 6 decimals', glyph:'$', stateLabel:'ASSET', ok:true },
+    { name:'Otto receiver '+recv, meta:'earnings settle here', glyph:'↓', stateLabel: li.receiver?'BOUND':'UNSET', ok: !!li.receiver },
+    { name:'Your wallet · /pay', meta:'Lute or Pera · pay Otto live', glyph:'⌁', stateLabel:'CONNECT', ok:true }
+  ];
+}
+function renderRails(){ document.getElementById('rails').innerHTML = railData().map(function(r){
   var ic = 'width:36px;height:36px;flex:none;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:14px;'
     +(r.ok?'color:#C8C1FF;background:rgba(169,160,255,0.09);border:1px solid rgba(169,160,255,0.18)':'color:rgba(242,241,246,0.4);background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08)');
   var pill = r.ok?tagStyle('RUNNING'):tagStyle('OPEN');
   return '<div style="display:flex;align-items:center;gap:13px;border-radius:19px;border:1px solid rgba(255,255,255,0.065);background:rgba(255,255,255,0.028);padding:15px 16px"><div style="'+ic+'">'+r.glyph+'</div><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:500">'+esc(r.name)+'</div><div class="mono" style="font-size:10.5px;color:rgba(242,241,246,0.32);margin-top:4px">'+esc(r.meta)+'</div></div><span style="'+pill+'">'+r.stateLabel+'</span></div>';
 }).join(''); }
 function renderLedger(){
-  var rows = LEDGER.filter(function(l){ return state.filter==='all' || l.dir===state.filter; });
+  var src = (state.ledgerRows && state.ledgerRows.length) ? state.ledgerRows : LEDGER;
+  var rows = src.filter(function(l){ return state.filter==='all' || l.dir===state.filter; });
   document.getElementById('ledger').innerHTML = rows.map(function(l){
     return '<div style="display:grid;grid-template-columns:1.6fr 1fr 1fr 0.8fr;gap:14px;align-items:center;padding:13px 4px;border-bottom:1px solid rgba(255,255,255,0.045)">'
       +'<div style="display:flex;align-items:center;gap:11px;min-width:0"><div style="'+iconStyle(l.dir)+'">'+(l.dir==='in'?'↑':'↓')+'</div><div style="min-width:0"><div style="font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(l.who)+'</div><div style="font-size:10.5px;color:rgba(242,241,246,0.3);margin-top:3px">'+l.time+'</div></div></div>'
@@ -531,7 +539,29 @@ function renderLedger(){
       +'<div style="text-align:right"><span style="'+amtStyle(l.dir)+'">'+l.amount+'</span></div></div>';
   }).join('');
 }
+function policyRules(){
+  if (!state.policy) return null;
+  var p = state.policy;
+  return [
+    { key:'autoHire', title:'Hire agents autonomously', detail:'Otto may plan tasks and contract marketplace agents on its own', value:'gates /api/tasks', on:p.autoHire },
+    { key:'autoPay', title:'Pay without approval', detail:'x402 micropayments settle instantly, inside the firewall budgets', value:'gates hiring', on:p.autoPay },
+    { key:'sellSkills', title:"Sell Otto's skills", detail:'Accept inbound paid gigs from other agents', value:'gates earnings', on:p.sellSkills }
+  ];
+}
 function renderRules(){
+  var real = policyRules();
+  if (real){
+    document.getElementById('rules').innerHTML = real.map(function(r){
+      var on = r.on;
+      var track = 'width:40px;height:23px;flex:none;border-radius:99px;padding:2px;display:flex;justify-content:'+(on?'flex-end':'flex-start')+';background:'+(on?'linear-gradient(140deg,#B3AAFF,#7E76D6)':'rgba(255,255,255,0.09)')+';border:1px solid rgba(255,255,255,0.1);transition:all .25s ease';
+      var knob = 'width:17px;height:17px;border-radius:50%;background:'+(on?'#15131F':'rgba(242,241,246,0.55)');
+      var val = 'font-family:var(--mono);font-size:11.5px;flex:none;color:'+(on?'#C8C1FF':'rgba(242,241,246,0.3)');
+      return '<div class="ruleRow" data-policy="'+r.key+'" style="display:flex;align-items:center;gap:16px;padding:16px 2px;border-bottom:1px solid rgba(255,255,255,0.05);cursor:pointer">'
+        +'<div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:500">'+esc(r.title)+'</div><div style="font-size:11.5px;color:rgba(242,241,246,0.36);margin-top:5px">'+esc(r.detail)+'</div></div>'
+        +'<span style="'+val+'">'+esc(r.value)+'</span><div style="'+track+'"><div style="'+knob+'"></div></div></div>';
+    }).join('');
+    return;
+  }
   document.getElementById('rules').innerHTML = RULES.map(function(r,i){
     var on = state.rules[i];
     var track = 'width:40px;height:23px;flex:none;border-radius:99px;padding:2px;display:flex;justify-content:'+(on?'flex-end':'flex-start')+';background:'+(on?'linear-gradient(140deg,#B3AAFF,#7E76D6)':'rgba(255,255,255,0.09)')+';border:1px solid rgba(255,255,255,0.1);transition:all .25s ease';
@@ -550,6 +580,10 @@ function setPage(p){
   document.getElementById('pageSub').textContent=SUBS[p];
   var views=document.querySelectorAll('.view');
   for(var i=0;i<views.length;i++){ views[i].classList.toggle('on', views[i].id==='view-'+p); }
+  // re-render view-specific live content so it never shows stale design data
+  if (p==='receipts') renderLedger();
+  if (p==='rules'){ renderRules(); renderTrusted(); }
+  if (p==='wallet') renderRails();
   window.scrollTo(0,0);
 }
 function setTab(t){ state.tab=t; document.getElementById('tabHiring').className='t'+(t==='hiring'?' on':''); document.getElementById('tabSelling').className='t'+(t==='selling'?' on':''); renderGigs(); }
@@ -562,6 +596,7 @@ document.addEventListener('click', function(e){
   var hireBtn=e.target.closest('[data-hire]'); if(hireBtn){ hire(hireBtn.getAttribute('data-hire'), hireBtn); return; }
   var sellBtn=e.target.closest('[data-sell]'); if(sellBtn){ simulateSale(); return; }
   var rule=e.target.closest('[data-rule]'); if(rule){ var i=parseInt(rule.getAttribute('data-rule'),10); state.rules[i]=!state.rules[i]; renderRules(); return; }
+  var pol=e.target.closest('[data-policy]'); if(pol){ togglePolicy(pol.getAttribute('data-policy')); return; }
 });
 
 // ── Real data ────────────────────────────────────────────────────────────────
@@ -597,7 +632,14 @@ function pollLedger(){
       FEED = l.entries.slice(0,8).map(function(e){
         return { label:e.resource+' · '+e.counterparty, amount:(e.direction==='in'?'+':'−')+usd(e.usdc), dir:e.direction, tx:shortTx(e.txId), time:'live' };
       });
+      state.ledgerRows = l.entries.map(function(e){
+        var t = new Date(e.ts);
+        return { who: e.direction==='in' ? e.counterparty : agentName(e.resource),
+          task: e.resource, amount:(e.direction==='in'?'+':'−')+usd(e.usdc), dir:e.direction,
+          tx: shortTx(e.txId), time: t.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) };
+      });
       renderFeed();
+      if (state.page==='receipts') renderLedger();
     }
   }).catch(function(){});
 }
@@ -715,6 +757,89 @@ function agentLine(s){
   return 'queued · '+who;
 }
 
+function pollStats(){
+  fetch('/api/stats').then(function(r){return r.json();}).then(function(st){
+    state.counts = { market: String(st.counts.agents), task: String(st.counts.runningTasks), wallet:'', receipts: String(st.counts.receipts), rules:'' };
+    renderNav();
+    document.getElementById('netChip').textContent = st.network;
+    // sidebar + rules-view ceiling
+    var bud = st.firewall.sessionBudget.usdc, used = st.firewall.sessionSpent.usdc;
+    var pct = Math.min(100, Math.round(100*used/Math.max(bud,0.0001)));
+    document.getElementById('ceilVal').textContent = usd(bud);
+    document.getElementById('ceilBar').style.width = pct+'%';
+    document.getElementById('ceilBig').textContent = usd(bud);
+    document.getElementById('ceilBigBar').style.width = pct+'%';
+    document.getElementById('ceilUsed').textContent = usd(used)+' used';
+    // wallet view stats
+    document.getElementById('wEscrow').textContent = usd(st.escrow.usdc);
+    document.getElementById('mEscrow').textContent = usd(st.escrow.usdc);
+    document.getElementById('mOut').textContent = st.month.paymentsOut;
+    document.getElementById('mIn').textContent = st.month.paymentsIn;
+    var net = document.getElementById('mNet');
+    net.textContent = (st.month.netMicro>=0?'+':'−')+usd(Math.abs(st.month.net.usdc));
+    net.style.color = st.month.netMicro>=0 ? '#A9EFC8' : '#C8C1FF';
+    renderMktChart(st.chart);
+    // where the money goes
+    if (st.moneyGoes.length){
+      var total = st.moneyGoes.reduce(function(a,m){return a+m.micro;},0) || 1;
+      var grads = ['linear-gradient(90deg,#8F87F1,#B3AAFF)','linear-gradient(90deg,#6E68B8,#8F87F1)','linear-gradient(90deg,#4C4880,#6E68B8)','rgba(255,255,255,0.14)'];
+      var sw = ['#B3AAFF','#8F87F1','#6E68B8','rgba(255,255,255,0.3)'];
+      document.getElementById('mgBar').innerHTML = st.moneyGoes.map(function(m,i){
+        return '<div style="width:'+Math.max(4,Math.round(100*m.micro/total))+'%;background:'+grads[i%4]+'"></div>';
+      }).join('');
+      document.getElementById('mgRows').innerHTML = st.moneyGoes.map(function(m,i){
+        return '<div style="display:flex;align-items:center;gap:10px;font-size:12.5px"><span style="width:8px;height:8px;border-radius:3px;background:'+sw[i%4]+'"></span>'+esc(m.label)+'<span class="mono" style="margin-left:auto;color:rgba(242,241,246,0.72)">'+usd(m.usdc)+'</span></div>';
+      }).join('');
+    }
+  }).catch(function(){});
+}
+function pollPolicy(){
+  fetch('/api/policy').then(function(r){return r.json();}).then(function(pp){
+    state.policy = pp.policy; if (state.page==='rules') renderRules();
+  }).catch(function(){});
+}
+function pollLiveInfo(){
+  fetch('/api/live/info').then(function(r){return r.json();}).then(function(li){
+    state.liveInfo = li; renderRails();
+    document.getElementById('setNet').textContent = 'Algorand TestNet';
+    document.getElementById('setAsset').textContent = 'ASA '+li.assetId;
+    document.getElementById('cardAddr').textContent = li.receiver ? (li.receiver.slice(0,10)+'…'+li.receiver.slice(-8)) : 'set RECEIVER_ADDRESS';
+    document.getElementById('cardNet').textContent = li.enabled ? 'TestNet · live' : 'TestNet';
+  }).catch(function(){});
+}
+function togglePolicy(key){
+  if (!state.policy) return;
+  var patch = {}; patch[key] = !state.policy[key];
+  fetch('/api/policy', { method:'PUT', headers:{'content-type':'application/json'}, body: JSON.stringify(patch) })
+    .then(function(r){return r.json();}).then(function(pp){
+      state.policy = pp.policy; renderRules();
+      toast(patch[key] ? '✓ Autonomy granted' : '✕ Autonomy revoked — Otto will be blocked at that gate');
+    }).catch(function(){});
+}
+document.getElementById('killBtn').addEventListener('click', function(){
+  fetch('/api/policy', { method:'PUT', headers:{'content-type':'application/json'},
+    body: JSON.stringify({ autoHire:false, autoPay:false, sellSkills:false }) })
+    .then(function(r){return r.json();}).then(function(pp){
+      state.policy = pp.policy; renderRules();
+      toast('🛑 Otto stopped — hiring, paying and selling are all revoked');
+    }).catch(function(){});
+});
+document.getElementById('ceilEdit').addEventListener('click', function(){
+  var v = prompt('New session spend ceiling (USDC):', state.policy ? String(state.policy.sessionBudgetUsdc) : '25');
+  var n = parseFloat(v||'');
+  if (!isFinite(n) || n<=0) return;
+  fetch('/api/policy', { method:'PUT', headers:{'content-type':'application/json'}, body: JSON.stringify({ sessionBudgetUsdc:n }) })
+    .then(function(){ toast('✓ Spend ceiling set to '+usd(n)); pollStats(); }).catch(function(){});
+});
+function renderTrusted(){
+  var tr = document.getElementById('trusted'); if (!tr) return;
+  var names = []; var seen = {};
+  for (var i=0;i<state.agents.length;i++){ var a=state.agents[i]; if (!a.sell && !seen[a.agent]){ seen[a.agent]=1; names.push(a.agent); } }
+  if (!names.length) return;
+  tr.innerHTML = names.map(function(n){
+    return '<span style="padding:7px 12px;border-radius:11px;border:1px solid rgba(169,160,255,0.22);background:rgba(169,160,255,0.1);font-size:12px;color:#C8C1FF">'+esc(n)+'</span>';
+  }).join('');
+}
 function simulateSale(){
   fetch('/api/earn/simulate', { method:'POST' }).then(function(r){return r.json();}).then(function(en){
     toast('✓ A client paid Otto '+usd(en.usdc)+' · tx <span class="mono">'+shortTx(en.txId)+'</span>');
@@ -727,8 +852,9 @@ document.getElementById('earnBtn').addEventListener('click', simulateSale);
 
 renderNav(); renderMktChart(); renderGigs(); renderFeed(); renderSteps(); renderTaskReceipts(); renderRails(); renderLedger(); renderRules();
 setInterval(function(){ state.tick++; if(!state.feedLive) renderFeed(); }, 3800);
-setInterval(function(){ pollWallet(); pollLedger(); }, 4000);
-pollWallet(); pollLedger(); loadMarketplace();
+setInterval(function(){ pollWallet(); pollLedger(); pollStats(); }, 4000);
+pollWallet(); pollLedger(); pollStats(); pollPolicy(); pollLiveInfo();
+loadMarketplace(); setTimeout(renderTrusted, 900);
 </script>
 
 <div id="toast" style="display:none;position:fixed;bottom:28px;left:50%;transform:translateX(-50%);z-index:90;align-items:center;gap:11px;padding:14px 18px;border-radius:18px;border:1px solid rgba(143,227,180,0.22);background:rgba(20,26,23,0.9);backdrop-filter:blur(28px);box-shadow:0 20px 44px -18px rgba(0,0,0,0.9);animation:ottoRise .3s both">
