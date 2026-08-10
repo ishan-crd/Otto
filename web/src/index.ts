@@ -2,9 +2,11 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { dashboard } from "./api/dashboard";
+import { PAY_PAGE_HTML } from "./api/payPage";
 import { DASHBOARD_HTML } from "./api/webPage";
 import { config, fmtUsdc } from "./config";
 import { SERVICES } from "./services/registry";
+import { liveEnabled, mountLive } from "./x402/liveServices";
 import { paid } from "./x402/middleware";
 
 const app = new Hono();
@@ -14,6 +16,10 @@ app.use("*", cors());
 
 // Built-in browser dashboard so you can SEE Otto working — served at root.
 app.get("/", (c) => c.html(DASHBOARD_HTML));
+
+// The LIVE x402 wallet flow — connect Pera Wallet, pay real testnet USDC.
+app.get("/pay", (c) => c.html(PAY_PAGE_HTML));
+mountLive(app);
 
 // Mount every registry service as a paid x402 endpoint.
 for (const service of SERVICES) {
@@ -39,6 +45,9 @@ app.get("/api", (c) =>
       services: "GET /api/services",
       earn: "POST /api/earn/simulate",
       stream: "GET /api/stream (SSE)",
+      liveInfo: "GET /api/live/info",
+      liveServices: "GET /api/live/services",
+      pay: "GET /pay (connect wallet + real testnet USDC)",
     },
     paidServices: SERVICES.map((s) => ({ path: s.path, price: fmtUsdc(s.priceMicroUsdc) })),
   }),
@@ -48,9 +57,12 @@ export function startServer(port = config.PORT) {
   return serve({ fetch: app.fetch, port }, (info) => {
     console.log(`\n  🤖 Otto is live`);
     console.log(`     dashboard: http://localhost:${info.port}/`);
+    console.log(
+      `     live x402: http://localhost:${info.port}/pay  (connect wallet, real testnet USDC)`,
+    );
     console.log(`     API index: http://localhost:${info.port}/api`);
     console.log(
-      `     rail: ${config.RAIL.toUpperCase()}  |  session budget: ${fmtUsdc(config.sessionBudgetMicro)}\n`,
+      `     rail: ${config.RAIL.toUpperCase()}  |  live payments: ${liveEnabled() ? "ON (Algorand)" : "off — set RECEIVER_ADDRESS"}\n`,
     );
   });
 }

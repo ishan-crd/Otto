@@ -10,6 +10,7 @@
     "dry-run": "tsx scripts/dry-run.ts",
     "gen-wallet": "tsx scripts/gen-wallet.ts",
     "check-wallet": "tsx scripts/check-wallet.ts",
+    "opt-in": "tsx scripts/opt-in.ts",
     "demo": "tsx scripts/demo.ts",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test test/*.test.ts"

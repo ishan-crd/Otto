@@ -115,6 +115,7 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
         <div class="pageSub" id="pageSub">Agents hiring agents — Otto is taking 4 gigs and selling 6 skills.</div>
       </div>
       <div style="display:flex;align-items:center;gap:10px">
+        <a href="/pay" class="hchip" style="text-decoration:none;color:#14121F;background:linear-gradient(160deg,#CFC9FF,#9990E8);border:none;font-weight:600">⚡ Try live x402</a>
         <div class="hchip"><span style="width:6px;height:6px;border-radius:50%;background:#8FE3B4"></span><span>USDC · Base</span></div>
         <div class="hchip">⌘K &nbsp;Ask Otto</div>
         <div class="bell"><div style="width:13px;height:13px;border:1.6px solid rgba(242,241,246,0.55);border-radius:4px 4px 6px 6px"></div><span style="position:absolute;top:9px;right:10px;width:6px;height:6px;border-radius:50%;background:#A9A0FF;box-shadow:0 0 0 2px #0A0A0B"></span></div>
