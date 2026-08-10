@@ -5,6 +5,7 @@ import { runConcierge } from "../agent/concierge";
 import { getTask, listTasks, startTask } from "../agent/taskStore";
 import { payAndFetch } from "../client/x402Client";
 import { config, microToUsdc } from "../config";
+import { persistPolicy } from "../db/supaStore";
 import { simulateIncomingPayment } from "../earn/earn";
 import { getPolicy, updatePolicy } from "../guard/policy";
 import { spendGuard } from "../guard/spendGuard";
@@ -176,6 +177,7 @@ dashboard.get("/api/policy", (c) => {
 dashboard.put("/api/policy", async (c) => {
   const patch = await c.req.json<Record<string, unknown>>().catch(() => ({}));
   const policy = updatePolicy(patch);
+  persistPolicy(policy);
   const fw = spendGuard.snapshot();
   return c.json({
     policy,

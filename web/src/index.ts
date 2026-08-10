@@ -10,6 +10,7 @@ import { PROMPT_PAGE_HTML } from "./api/promptPage";
 import { mountSupaAuth, supaEnabled } from "./api/supaAuth";
 import { DASHBOARD_HTML } from "./api/webPage";
 import { config, fmtUsdc } from "./config";
+import { initPersistence } from "./db/supaStore";
 import { SERVICES } from "./services/registry";
 import { liveEnabled, mountLive, ottoAddress } from "./x402/liveServices";
 import { paid } from "./x402/middleware";
@@ -65,9 +66,13 @@ app.get("/api", (c) =>
   }),
 );
 
-export function startServer(port = config.PORT) {
+export async function startServer(port = config.PORT) {
+  const store = await initPersistence();
   return serve({ fetch: app.fetch, port }, (info) => {
     console.log(`\n  🤖 Otto is live`);
+    console.log(
+      `     state: ${store === "postgres" ? "Supabase Postgres (persistent)" : "in-memory (run supabase/setup.sql to persist)"}`,
+    );
     console.log(`     dashboard: http://localhost:${info.port}/`);
     console.log(
       `     live x402: http://localhost:${info.port}/pay  (connect wallet, real testnet USDC)`,
@@ -88,6 +93,6 @@ export function startServer(port = config.PORT) {
 // not when imported (e.g. by tests, which boot their own instance).
 import { argv } from "node:process";
 
-if (argv[1] && import.meta.url === `file://${argv[1]}`) startServer();
+if (argv[1] && import.meta.url === `file://${argv[1]}`) void startServer();
 
 export { app };

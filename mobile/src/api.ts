@@ -201,12 +201,24 @@ export interface AuthResult {
   confirmEmail?: boolean;
 }
 
+/** A prompt the signed-in user bought (persisted in Supabase). */
+export interface PurchaseRecord {
+  prompt: string;
+  model: string;
+  priceUsdc: number;
+  outputTokens: number;
+  txId: string;
+  explorerUrl: string;
+  at: string;
+}
+
 export const otto = {
   login: (email: string, password: string) =>
     jsend<AuthResult>("POST", "/api/auth/login", { email, password }),
   signup: (name: string, email: string, password: string) =>
     jsend<AuthResult>("POST", "/api/auth/signup", { name, email, password }),
   me: () => jget<{ user: AuthUser }>("/api/auth/me"),
+  history: () => jget<{ purchases: PurchaseRecord[] }>("/api/prompt/history"),
   logout: () => jsend<{ ok: boolean }>("POST", "/api/auth/logout"),
 
   wallet: () => jget<WalletSnapshot>("/api/wallet"),

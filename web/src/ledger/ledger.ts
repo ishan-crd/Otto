@@ -48,6 +48,11 @@ class Ledger extends EventEmitter {
     return entry;
   }
 
+  /** Rehydrate from the database at boot (oldest-first, no events). */
+  restore(rows: LedgerEntry[]) {
+    this.entries = [...rows];
+  }
+
   all(): LedgerEntry[] {
     return [...this.entries].reverse(); // newest first
   }

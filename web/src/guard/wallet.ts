@@ -11,6 +11,13 @@ class Wallet extends EventEmitter {
   private earnedMicro = 0;
   private spentMicro = 0;
 
+  /** Rehydrate totals from the database at boot (no event). */
+  restore(t: { toppedUpMicro: number; earnedMicro: number; spentMicro: number }) {
+    this.toppedUpMicro = t.toppedUpMicro;
+    this.earnedMicro = t.earnedMicro;
+    this.spentMicro = t.spentMicro;
+  }
+
   topUp(micro: number) {
     this.toppedUpMicro += micro;
     this.emit("change", this.snapshot());

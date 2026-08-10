@@ -34,6 +34,11 @@ export class SpendGuard {
     this.sessionBudgetMicro = micro;
   }
 
+  /** Rehydrate session spend from the database at boot. */
+  restoreSessionSpent(micro: number) {
+    this.sessionSpentMicro = micro;
+  }
+
   /** Live limits + usage — surfaced on the dashboard's autonomy panels. */
   snapshot() {
     return {
