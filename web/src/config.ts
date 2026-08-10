@@ -28,6 +28,12 @@ const Env = z.object({
   RECEIVER_ADDRESS: z.string().default(""),
   FACILITATOR_URL: z.string().default("https://facilitator.goplausible.xyz"),
   EXPLORER_TX_BASE: z.string().default("https://lora.algokit.io/testnet/transaction/"),
+
+  // Real work behind the paywall: paid endpoints call OpenRouter (cheap per
+  // call) so paying delivers a genuine AI result. Optional — the price/weather
+  // endpoints use free, no-key public APIs and always work without this.
+  OPENROUTER_API_KEY: z.string().default(""),
+  OPENROUTER_MODEL: z.string().default("openai/gpt-4o-mini"),
 });
 
 const parsed = Env.parse(process.env);

@@ -25,43 +25,157 @@ interface LiveService {
   path: string;
   priceMicro: number;
   description: string;
-  handler: (input: Record<string, unknown>) => unknown;
+  handler: (input: Record<string, unknown>) => Promise<unknown> | unknown;
 }
 
+const AI_MODEL = config.OPENROUTER_MODEL;
+const hasAI = () => Boolean(config.OPENROUTER_API_KEY);
+
+/**
+ * fetch → JSON with a timeout that THROWS on any failure. Throwing matters: the
+ * x402 middleware only settles after the handler returns (see middleware.ts), so
+ * a thrown handler means no on-chain payment — the caller is only charged when a
+ * real result comes back (pay-on-success).
+ */
+async function fetchJson<T = unknown>(url: string, init: RequestInit = {}, ms = 6000): Promise<T> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), ms);
+  try {
+    const res = await fetch(url, {
+      ...init,
+      signal: ctrl.signal,
+      headers: { "user-agent": "otto-x402/1.0", ...(init.headers ?? {}) },
+    });
+    if (!res.ok) throw new Error(`upstream ${res.status} for ${url}`);
+    return (await res.json()) as T;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** One real OpenRouter chat completion. Throws if no key is configured. */
+async function askAI(system: string, user: string): Promise<string> {
+  if (!hasAI()) throw new Error("AI not configured — set OPENROUTER_API_KEY in web/.env");
+  const data = await fetchJson<{ choices?: { message?: { content?: string } }[] }>(
+    "https://openrouter.ai/api/v1/chat/completions",
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${config.OPENROUTER_API_KEY}`,
+        "HTTP-Referer": "https://otto.agent",
+        "X-Title": "Otto x402 agent",
+      },
+      body: JSON.stringify({
+        model: AI_MODEL,
+        max_tokens: 400,
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: user },
+        ],
+      }),
+    },
+    15000,
+  );
+  const text = data.choices?.[0]?.message?.content;
+  if (!text) throw new Error("AI returned no content");
+  return text.trim();
+}
+
+/**
+ * Real paid endpoints. The AI ones make genuine OpenRouter calls (cheap per
+ * call) — real agent work behind the paywall. The price/weather ones use free,
+ * no-key public APIs, so the demo always has live results even without a key.
+ */
 const SERVICES: LiveService[] = [
   {
-    id: "regex",
-    path: "/live/services/regex",
+    id: "ask",
+    path: "/live/services/ask",
     priceMicro: PRICE_MICRO,
-    description: "Smart Regex Builder — plain English → a production-ready pattern",
-    handler: (i) => ({
-      input: String(i.text ?? "a US phone number"),
-      pattern: "^\\+?1?\\s*\\(?\\d{3}\\)?[\\s.-]?\\d{3}[\\s.-]?\\d{4}$",
-      explanation: "Matches optional +1, area code (with or without parens), and 7 digits.",
-    }),
+    description: "Otto AI Agent — ask it anything (real GPT call via OpenRouter)",
+    handler: async (i) => {
+      const q = String(i.text ?? "In one sentence, what is the x402 payment protocol?");
+      const answer = await askAI(
+        "You are Otto, a concise, helpful autonomous agent. Answer in 2-4 sentences.",
+        q,
+      );
+      return { model: AI_MODEL, prompt: q, answer };
+    },
   },
   {
-    id: "commit",
-    path: "/live/services/commit",
+    id: "translate",
+    path: "/live/services/translate",
     priceMicro: PRICE_MICRO,
-    description: "Roast My Commit — reviews a commit message and suggests a better one",
-    handler: (i) => ({
-      original: String(i.text ?? "fix stuff"),
-      verdict: "Too vague — a reader can't tell what changed or why.",
-      suggestion: "fix(auth): reject expired tokens before session creation",
-    }),
+    description: "AI Translator — 'to <language> | <text>' (OpenRouter)",
+    handler: async (i) => {
+      const raw = String(i.text ?? "to Spanish | Good morning, welcome to the agent economy");
+      const m = raw.match(/^\s*to\s+([a-zA-Z ]+?)\s*[|:]\s*([\s\S]+)$/i);
+      const lang = m ? m[1].trim() : "Spanish";
+      const text = m ? m[2].trim() : raw;
+      const translation = await askAI(
+        `Translate the user's text into ${lang}. Reply with ONLY the translation.`,
+        text,
+      );
+      return { model: AI_MODEL, targetLanguage: lang, source: text, translation };
+    },
   },
   {
-    id: "diff",
-    path: "/live/services/diff",
+    id: "price",
+    path: "/live/services/price",
     priceMicro: PRICE_MICRO,
-    description: "Git Diff Explainer — plain-language summary of a code change",
-    handler: (i) => ({
-      input: String(i.text ?? "the provided diff"),
-      summary:
-        "Adds an early-return guard so the function exits before the network call when input is empty.",
-      risk: "low",
-    }),
+    description: "Live crypto price — real-time spot from Coinbase (no key)",
+    handler: async (i) => {
+      let pair = String(i.text ?? "BTC-USD")
+        .trim()
+        .toUpperCase();
+      if (!pair.includes("-")) pair = `${pair}-USD`;
+      const data = await fetchJson<{ data?: { amount?: string; currency?: string } }>(
+        `https://api.coinbase.com/v2/prices/${encodeURIComponent(pair)}/spot`,
+      );
+      const amount = data.data?.amount;
+      if (!amount) throw new Error(`no price for ${pair}`);
+      return {
+        pair,
+        price: Number(amount),
+        currency: data.data?.currency ?? "USD",
+        source: "coinbase",
+        asOf: new Date().toISOString(),
+      };
+    },
+  },
+  {
+    id: "weather",
+    path: "/live/services/weather",
+    priceMicro: PRICE_MICRO,
+    description: "Live weather — current conditions for any city (Open-Meteo, no key)",
+    handler: async (i) => {
+      const city = String(i.text ?? "London").trim();
+      const geo = await fetchJson<{
+        results?: { latitude: number; longitude: number; name: string; country?: string }[];
+      }>(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1`);
+      const place = geo.results?.[0];
+      if (!place) throw new Error(`unknown city: ${city}`);
+      const wx = await fetchJson<{
+        current?: {
+          temperature_2m?: number;
+          wind_speed_10m?: number;
+          relative_humidity_2m?: number;
+          time?: string;
+        };
+      }>(
+        `https://api.open-meteo.com/v1/forecast?latitude=${place.latitude}&longitude=${place.longitude}&current=temperature_2m,wind_speed_10m,relative_humidity_2m`,
+      );
+      const cur = wx.current ?? {};
+      return {
+        city: place.name,
+        country: place.country ?? "",
+        tempC: cur.temperature_2m,
+        windKph: cur.wind_speed_10m,
+        humidityPct: cur.relative_humidity_2m,
+        source: "open-meteo",
+        asOf: cur.time ?? new Date().toISOString(),
+      };
+    },
   },
 ];
 
@@ -226,7 +340,7 @@ export function mountLive(app: Hono) {
   for (const s of SERVICES) {
     app.post(s.path, paid(s.priceMicro, s.id, { rail, description: s.description }), async (c) => {
       const input = await c.req.json().catch(() => ({}));
-      return c.json({ result: s.handler(input) });
+      return c.json({ result: await s.handler(input) });
     });
   }
 }
