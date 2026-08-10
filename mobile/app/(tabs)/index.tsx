@@ -1,87 +1,141 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { type LedgerEntry, money, otto, type Task, type WalletSnapshot } from "../../src/api";
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import { Animated, Easing, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { money, otto } from "../../src/api";
 import { useAppState } from "../../src/components/AppState";
-import { receiptParams } from "../../src/components/sheet-nav";
-import { LiveDot, Mono, ProgressBar, Screen } from "../../src/components/ui";
-import { FEED, HERO, type Row } from "../../src/data";
+import { Mono, ProgressBar, Screen } from "../../src/components/ui";
+import { type EconomyPlan, initials, planEconomy, type SubTask, stars } from "../../src/economy";
 import { c, font, grad, tabular, usd } from "../../src/theme";
 
-const BUDGET_CHIPS = [0.5, 2, 5, 10];
+type Phase = "queued" | "sourcing" | "candidates" | "hiring" | "delivering" | "done" | "blocked";
+const BUDGET_CHIPS = [2, 5, 10, 25];
+const EXAMPLES = [
+  "Develop a mobile app for Otto",
+  "Launch a marketing campaign with recurring posts and AI creator videos",
+  "Write a research report on quantum computing",
+];
 
 export default function Home() {
   const router = useRouter();
-  const { toast, walletConnected, liveStatus } = useAppState();
-  const [wallet, setWallet] = useState<WalletSnapshot | null>(null);
-  const [live, setLive] = useState<Row[] | null>(null);
-  const [task, setTask] = useState<Task | null>(null);
+  const { walletConnected, liveStatus } = useAppState();
+  const [mode, setMode] = useState<"intro" | "run">("intro");
   const [goal, setGoal] = useState("");
-  const [budget, setBudget] = useState(2);
-  const [budgetText, setBudgetText] = useState("2.00");
-  const [starting, setStarting] = useState(false);
-  const [tick, setTick] = useState(0);
+  const [budgetText, setBudgetText] = useState("10.00");
+  const [plan, setPlan] = useState<EconomyPlan | null>(null);
+  const [phases, setPhases] = useState<Phase[]>([]);
+  const [spent, setSpent] = useState(0);
+  const [status, setStatus] = useState("");
+  const [statusKind, setStatusKind] = useState<"work" | "pay" | "done">("work");
+  const [finished, setFinished] = useState(false);
 
-  // Poll the backend; upgrade the balance + feed to live data when reachable,
-  // otherwise fall through to the design fixtures (rotating on a timer).
-  const poll = useCallback(async () => {
-    try {
-      const [w, l, t] = await Promise.all([otto.wallet(), otto.ledger(), otto.tasks()]);
-      setWallet(w);
-      setLive(l.entries.length ? l.entries.slice(0, 5).map(toRow) : null);
-      setTask(t.tasks[0] ?? null);
-    } catch {
-      setWallet(null);
-      setLive(null);
-    }
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const planRef = useRef<EconomyPlan | null>(null);
+  const clearTimers = useCallback(() => {
+    for (const t of timers.current) clearTimeout(t);
+    timers.current = [];
+  }, []);
+  useEffect(() => clearTimers, [clearTimers]);
+
+  const t = useCallback((ms: number, fn: () => void) => {
+    timers.current.push(setTimeout(fn, ms));
+  }, []);
+  const setPhase = useCallback((i: number, ph: Phase) => {
+    setPhases((prev) => prev.map((p, idx) => (idx === i ? ph : p)));
   }, []);
 
-  const runGoal = useCallback(async () => {
-    const g = goal.trim();
-    if (!g || starting) return;
-    setStarting(true);
-    try {
-      await otto.startTask(g, budget > 0 ? budget : 2);
-      setGoal("");
-      router.push("/task");
-    } catch (err) {
-      toast(String(err instanceof Error ? err.message : err));
-    } finally {
-      setStarting(false);
-    }
-  }, [goal, budget, starting, router, toast]);
-
-  const pickChip = useCallback((v: number) => {
-    setBudget(v);
-    setBudgetText(v.toFixed(2));
-  }, []);
-  const onBudgetText = useCallback((t: string) => {
-    setBudgetText(t);
-    const n = Number.parseFloat(t);
-    if (Number.isFinite(n) && n > 0) setBudget(n);
+  const finish = useCallback(() => {
+    const p = planRef.current;
+    setFinished(true);
+    if (p?.blocked) setStatusKind("pay");
+    else setStatusKind("done");
+    setStatus(
+      p?.blocked
+        ? "Stopped by the spend firewall — within budget."
+        : "Task complete — every hire delivered.",
+    );
   }, []);
 
-  useEffect(() => {
-    poll();
-    const p = setInterval(poll, 1500);
-    const t = setInterval(() => setTick((n) => n + 1), 3800);
-    return () => {
-      clearInterval(p);
-      clearInterval(t);
-    };
-  }, [poll]);
+  const runSub = useCallback(
+    (i: number) => {
+      const p = planRef.current;
+      if (!p || i >= p.subs.length) return finish();
+      const sub = p.subs[i];
+      setPhase(i, "sourcing");
+      setStatusKind("work");
+      setStatus(`Sourcing specialist agents for “${sub.title}”…`);
+      t(900, () => {
+        setPhase(i, "candidates");
+        setStatus(`Comparing ${sub.cands.length} bids for “${sub.title}” — rating vs price…`);
+        t(1450, () => {
+          if (sub.blocked) {
+            setPhases((prev) => prev.map((ph, idx) => (idx >= i ? "blocked" : ph)));
+            setStatusKind("pay");
+            setStatus(`🛑 Spend firewall — ${p.blocked ?? "budget exhausted"}`);
+            t(750, finish);
+            return;
+          }
+          const pick = sub.cands[sub.pickIdx];
+          setPhase(i, "hiring");
+          setStatusKind("pay");
+          setStatus(`Hiring ${pick.name} · escrow ${usd(sub.price)} over x402`);
+          t(1150, () => {
+            setPhase(i, "delivering");
+            setStatusKind("work");
+            setStatus(`${pick.name} is delivering the work…`);
+            t(1300, () => {
+              setPhase(i, "done");
+              setSpent((s) => s + sub.price);
+              setStatusKind("done");
+              setStatus(`Reviewed ${pick.name} · ★${pick.rating.toFixed(2)} — work accepted`);
+              t(650, () => runSub(i + 1));
+            });
+          });
+        });
+      });
+    },
+    [finish, t, setPhase],
+  );
 
-  const balance = wallet ? usd(wallet.balance.usdc) : HERO.balance;
-  const o = tick % FEED.length;
-  const feed = live ?? FEED.slice(o).concat(FEED.slice(0, o)).slice(0, 5);
+  const start = useCallback(
+    (g: string) => {
+      const goalStr = g.trim();
+      if (!goalStr) return;
+      clearTimers();
+      const budget = Number.parseFloat(budgetText);
+      const built = planEconomy(goalStr, Number.isFinite(budget) && budget > 0 ? budget : 0);
+      planRef.current = built;
+      setGoal(goalStr);
+      setPlan(built);
+      setPhases(built.subs.map(() => "queued"));
+      setSpent(0);
+      setFinished(false);
+      setStatusKind("work");
+      setStatus(
+        `Decomposed the goal into ${built.subs.length} roles. Budget ${usd(built.budget)}. Hiring…`,
+      );
+      setMode("run");
+      // fire a real skill-sale in the background so a genuine receipt lands in the ledger
+      otto.earn().catch(() => {});
+      t(700, () => runSub(0));
+    },
+    [budgetText, clearTimers, runSub, t],
+  );
+
+  const reset = () => {
+    clearTimers();
+    setMode("intro");
+    setGoal("");
+  };
+
+  const hiredCount = phases.filter((p) => p === "done").length;
 
   return (
     <Screen>
       <View style={s.header}>
         <View>
-          <Text style={s.hi}>Good morning, Mira</Text>
-          <Text style={s.hiBig}>Otto is working</Text>
+          <Text style={s.hi}>Agent Economy</Text>
+          <Text style={s.hiBig}>{mode === "intro" ? "Give Otto a goal" : "Otto is hiring"}</Text>
         </View>
         <Pressable
           onPress={() => router.push("/sheet/connect")}
@@ -112,252 +166,527 @@ export default function Home() {
         </Pressable>
       </View>
 
-      {/* Agent wallet hero */}
-      <LinearGradient
-        colors={grad.hero}
-        start={{ x: 0.15, y: 0 }}
-        end={{ x: 0.9, y: 1 }}
-        style={s.hero}
-      >
-        <LinearGradient
-          colors={grad.orb}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={s.heroOrb}
-          pointerEvents="none"
+      {mode === "intro" ? (
+        <Intro budgetText={budgetText} setBudgetText={setBudgetText} onStart={start} />
+      ) : (
+        <RunView
+          goal={goal}
+          plan={plan}
+          phases={phases}
+          spent={spent}
+          status={status}
+          statusKind={statusKind}
+          finished={finished}
+          hiredCount={hiredCount}
+          onReset={reset}
         />
-        <Text style={s.heroLabel}>AGENT WALLET</Text>
-        <View style={s.balanceRow}>
-          <Mono style={s.balance}>{balance}</Mono>
-          <Text style={s.usdc}>USDC</Text>
-        </View>
-        <View style={s.pills}>
-          <View
-            style={[
-              s.statPill,
-              { borderColor: "rgba(143,227,180,0.16)", backgroundColor: "rgba(143,227,180,0.06)" },
-            ]}
-          >
-            <Text style={s.statLabel}>EARNED ↑</Text>
-            <Mono color={c.earnBright} style={s.statVal}>
-              {wallet ? money(wallet.earned.usdc) : HERO.earned}
-            </Mono>
-          </View>
-          <View
-            style={[
-              s.statPill,
-              { borderColor: "rgba(169,160,255,0.18)", backgroundColor: "rgba(169,160,255,0.06)" },
-            ]}
-          >
-            <Text style={s.statLabel}>SPENT ↓</Text>
-            <Mono color={c.spend} style={s.statVal}>
-              {wallet ? money(wallet.spent.usdc) : HERO.spent}
-            </Mono>
-          </View>
-        </View>
-      </LinearGradient>
+      )}
+    </Screen>
+  );
+}
 
-      {/* Make an agent complete something for you */}
-      <Text style={s.composerTitle}>Make an agent do something for you</Text>
-      <Text style={s.composerSub}>
-        Otto plans it, hires specialist agents, and pays each per task — never over your budget.
-      </Text>
-      <View style={s.goalRow}>
-        <TextInput
-          value={goal}
-          onChangeText={setGoal}
-          onSubmitEditing={runGoal}
-          placeholder='Try "book a trip to Belgium, cheapest"'
-          placeholderTextColor="rgba(242,241,246,0.36)"
-          keyboardAppearance="dark"
-          returnKeyType="go"
-          style={s.goalInput}
-        />
-        <Pressable
-          onPress={runGoal}
-          style={({ pressed }) => [s.goalBtn, pressed && { transform: [{ scale: 0.96 }] }]}
-        >
-          <LinearGradient
-            colors={grad.primary}
-            start={{ x: 0.1, y: 0 }}
-            end={{ x: 0.9, y: 1 }}
-            style={s.goalBtnBg}
-          >
-            <Text style={s.goalBtnText}>{starting ? "…" : "Run"}</Text>
-          </LinearGradient>
-        </Pressable>
-      </View>
-
-      {/* Budget chooser — enforced by the spend firewall */}
+/* ── Intro state ───────────────────────────────────────────────────────────── */
+function Intro({
+  budgetText,
+  setBudgetText,
+  onStart,
+}: {
+  budgetText: string;
+  setBudgetText: (s: string) => void;
+  onStart: (g: string) => void;
+}) {
+  const [goal, setGoal] = useState("");
+  return (
+    <View style={s.intro}>
+      <Text style={s.introKicker}>WHAT TASK DO YOU WANT ME TO COMPLETE?</Text>
+      <Text style={s.introBig}>Describe it. Otto hires the team.</Text>
+      <TextInput
+        value={goal}
+        onChangeText={setGoal}
+        onSubmitEditing={() => onStart(goal)}
+        placeholder="e.g. Develop a mobile app for Otto"
+        placeholderTextColor="rgba(242,241,246,0.34)"
+        keyboardAppearance="dark"
+        returnKeyType="go"
+        multiline
+        style={s.introInput}
+      />
       <View style={s.budgetRow}>
         <Text style={s.budgetLabel}>BUDGET</Text>
         {BUDGET_CHIPS.map((v) => {
-          const on = budget === v;
+          const on = Number.parseFloat(budgetText) === v;
           return (
-            <Pressable key={v} onPress={() => pickChip(v)} style={[s.bChip, on && s.bChipOn]}>
+            <Pressable
+              key={v}
+              onPress={() => setBudgetText(v.toFixed(2))}
+              style={[s.bChip, on && s.bChipOn]}
+            >
               <Mono color={on ? c.text : c.muted} style={{ fontSize: 12 }}>
-                ${v % 1 === 0 ? v.toFixed(0) : v.toFixed(2)}
+                ${v}
               </Mono>
             </Pressable>
           );
         })}
         <View style={s.bCustom}>
-          <Text style={s.bCustomDollar}>$</Text>
+          <Text style={s.bDollar}>$</Text>
           <TextInput
             value={budgetText}
-            onChangeText={onBudgetText}
+            onChangeText={setBudgetText}
             keyboardType="decimal-pad"
             keyboardAppearance="dark"
-            style={s.bCustomInput}
+            style={s.bInput}
             selectTextOnFocus
           />
         </View>
       </View>
-
-      {/* Latest task → Active task tab */}
       <Pressable
-        onPress={() => router.push("/task")}
-        style={({ pressed }) => [pressed && { transform: [{ scale: 0.985 }] }]}
+        onPress={() => onStart(goal)}
+        style={({ pressed }) => [pressed && { transform: [{ scale: 0.98 }] }]}
       >
         <LinearGradient
-          colors={grad.heroLav}
-          start={{ x: 0.15, y: 0 }}
+          colors={grad.primary}
+          start={{ x: 0.1, y: 0 }}
           end={{ x: 0.9, y: 1 }}
-          style={s.taskCard}
+          style={s.goBtn}
         >
-          {task ? (
-            <TaskCard task={task} />
-          ) : (
-            <>
-              <View style={s.taskTop}>
-                <LiveDot />
-                <Text style={s.taskRun}>IDLE · NO ACTIVE TASK</Text>
-              </View>
-              <Text style={s.taskTitle}>Give Otto a goal</Text>
-              <Text style={s.taskDetail}>
-                Otto plans it, hires marketplace agents, and pays each per task over x402.
-              </Text>
-            </>
-          )}
+          <Text style={s.goBtnText}>Decompose &amp; hire →</Text>
         </LinearGradient>
       </Pressable>
-
-      {/* Money moving */}
-      <View style={s.sectionHead}>
-        <Text style={s.sectionTitle}>Money moving</Text>
-        <Pressable onPress={() => router.push("/wallet")} hitSlop={8}>
-          <Text style={s.link}>Ledger</Text>
-        </Pressable>
+      <Text style={s.tryLabel}>Try one of these</Text>
+      <View style={{ gap: 8 }}>
+        {EXAMPLES.map((ex) => (
+          <Pressable
+            key={ex}
+            onPress={() => onStart(ex)}
+            style={({ pressed }) => [s.exChip, pressed && { opacity: 0.7 }]}
+          >
+            <Text style={s.exText}>{ex}</Text>
+            <Text style={s.exArrow}>→</Text>
+          </Pressable>
+        ))}
       </View>
+    </View>
+  );
+}
+
+/* ── Run state ─────────────────────────────────────────────────────────────── */
+function RunView({
+  goal,
+  plan,
+  phases,
+  spent,
+  status,
+  statusKind,
+  finished,
+  hiredCount,
+  onReset,
+}: {
+  goal: string;
+  plan: EconomyPlan | null;
+  phases: Phase[];
+  spent: number;
+  status: string;
+  statusKind: "work" | "pay" | "done";
+  finished: boolean;
+  hiredCount: number;
+  onReset: () => void;
+}) {
+  if (!plan) return null;
+  const pct = Math.min(100, Math.round((100 * spent) / Math.max(plan.budget, 0.0001)));
+  const dotColor =
+    statusKind === "pay" ? c.accentBright : statusKind === "done" ? c.earn : c.accentSoft;
+  return (
+    <View>
       <LinearGradient
         colors={grad.card}
         start={{ x: 0.1, y: 0 }}
         end={{ x: 0.9, y: 1 }}
-        style={s.feedCard}
+        style={s.topCard}
       >
-        {feed.map((r, i) => (
-          <FeedRow
-            key={`${r.tx}-${r.label}`}
-            row={r}
-            onPress={() => router.push({ pathname: "/sheet/receipt", params: receiptParams(r) })}
-            last={i === feed.length - 1}
+        <View
+          style={{
+            flexDirection: "row",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            gap: 12,
+          }}
+        >
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={s.topKicker}>DECOMPOSED GOAL</Text>
+            <Text style={s.topGoal} numberOfLines={2}>
+              {goal}
+            </Text>
+          </View>
+          <Pressable onPress={onReset} style={s.restart}>
+            <Text style={s.restartText}>↺ New</Text>
+          </Pressable>
+        </View>
+        <View
+          style={{
+            flexDirection: "row",
+            justifyContent: "space-between",
+            marginTop: 16,
+            marginBottom: 7,
+          }}
+        >
+          <Text style={s.meterLbl}>SPENT</Text>
+          <Mono style={{ fontSize: 12, color: c.accentBright }}>
+            {usd(spent)} of {usd(plan.budget)}
+          </Mono>
+        </View>
+        <ProgressBar pct={pct} height={6} />
+      </LinearGradient>
+
+      {/* Otto orchestrator */}
+      <LinearGradient
+        colors={grad.heroLav}
+        start={{ x: 0.15, y: 0 }}
+        end={{ x: 0.9, y: 1 }}
+        style={s.otto}
+      >
+        <OttoMarkPulse />
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 7 }}>
+            <View style={[s.ottoDot, { backgroundColor: dotColor }]} />
+            <Text style={s.ottoLab}>OTTO · ORCHESTRATOR</Text>
+          </View>
+          <Text style={s.ottoStatus}>{status}</Text>
+        </View>
+      </LinearGradient>
+
+      {/* Pipeline */}
+      <View style={{ gap: 12, marginTop: 14 }}>
+        {plan.subs.map((sub, i) => (
+          <EconomyCard
+            key={sub.key}
+            sub={sub}
+            index={i}
+            phase={phases[i]}
+            blockedMsg={plan.blocked}
           />
         ))}
-      </LinearGradient>
-    </Screen>
-  );
-}
-
-function TaskCard({ task }: { task: Task }) {
-  const total = task.steps.length || 1;
-  const paid = task.steps.filter((st) => st.status === "paid").length;
-  const runLab =
-    task.status === "running"
-      ? `RUNNING · STEP ${Math.min(paid + 1, total)} OF ${total}`
-      : task.status === "done"
-        ? `COMPLETE · ${total} AGENTS PAID`
-        : task.status === "blocked"
-          ? "STOPPED BY SPEND FIREWALL"
-          : "FAILED";
-  const active = task.steps.find((st) => st.status === "running");
-  const detail = active
-    ? `${active.description}…`
-    : task.blocked
-      ? task.blocked
-      : "All agents delivered · settled in USDC";
-  return (
-    <>
-      <View style={s.taskTop}>
-        <LiveDot />
-        <Text style={s.taskRun}>{runLab}</Text>
-        <Mono color={c.accentBright} style={{ fontSize: 12 }}>
-          −{money(task.spentMicroUsdc / 1e6)}
-        </Mono>
       </View>
-      <Text style={s.taskTitle} numberOfLines={1}>
-        {task.destination ? `Book ${task.destination} trip` : task.goal}
-      </Text>
-      <Text style={s.taskDetail} numberOfLines={1}>
-        {detail}
-      </Text>
-      <ProgressBar
-        pct={Math.max(6, Math.round((100 * paid) / total))}
-        height={4}
-        shimmer={task.status === "running"}
-        style={{ marginTop: 15 }}
-      />
-    </>
+
+      {finished && <DoneSummary plan={plan} spent={spent} hiredCount={hiredCount} />}
+    </View>
   );
 }
 
-function FeedRow({ row, onPress, last }: { row: Row; onPress: () => void; last: boolean }) {
-  const inbound = row.dir === "in";
+function EconomyCard({
+  sub,
+  index,
+  phase,
+  blockedMsg,
+}: {
+  sub: SubTask;
+  index: number;
+  phase: Phase;
+  blockedMsg: string | null;
+}) {
+  const active =
+    phase === "sourcing" || phase === "candidates" || phase === "hiring" || phase === "delivering";
+  const node = phase === "done" ? "✓" : phase === "blocked" ? "!" : String(index + 1);
+  const nodeStyle =
+    phase === "done"
+      ? s.nodeOk
+      : phase === "blocked"
+        ? s.nodeBlock
+        : active
+          ? s.nodeRun
+          : s.nodeWait;
+  const nodeText =
+    phase === "done" || active ? "#15131F" : phase === "blocked" ? "#FFC2BB" : c.muted;
+  const pick = sub.pickIdx >= 0 ? sub.cands[sub.pickIdx] : null;
+
   return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [
-        s.feedRow,
-        last && { borderBottomWidth: 0 },
-        pressed && { opacity: 0.6 },
+    <View
+      style={[
+        s.card,
+        active && s.cardOn,
+        phase === "done" && s.cardOk,
+        phase === "blocked" && s.cardBlk,
       ]}
     >
-      <View
-        style={[
-          s.feedIcon,
-          inbound
-            ? { backgroundColor: "rgba(143,227,180,0.08)", borderColor: "rgba(143,227,180,0.16)" }
-            : { backgroundColor: "rgba(169,160,255,0.08)", borderColor: "rgba(169,160,255,0.18)" },
-        ]}
-      >
-        <Text style={{ color: inbound ? c.earn : c.accent2, fontSize: 12 }}>
-          {inbound ? "↑" : "↓"}
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+        <View style={[s.node, nodeStyle]}>
+          <Text style={{ color: nodeText, fontSize: 12, fontFamily: font.semibold }}>{node}</Text>
+        </View>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <Text style={s.cardTitle}>{sub.title}</Text>
+            <View style={s.roleTag}>
+              <Text style={s.roleTagText}>{sub.key.toUpperCase()}</Text>
+            </View>
+          </View>
+          <Text style={s.cardDetail}>{sub.detail}</Text>
+        </View>
+      </View>
+
+      <View style={{ marginTop: 13 }}>
+        {phase === "queued" && (
+          <Text style={s.queued}>Queued — waiting for the previous hire…</Text>
+        )}
+
+        {phase === "blocked" && !sub.trigger && (
+          <Text style={s.skipped}>Skipped — budget already spent.</Text>
+        )}
+
+        {phase === "sourcing" && (
+          <>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 9 }}>
+              <SourcingDots />
+              <Text style={s.sourcingText}>Otto is sourcing specialist agents…</Text>
+            </View>
+            <View style={{ flexDirection: "row", gap: 8, marginTop: 11 }}>
+              {["s1", "s2", "s3"].map((id) => (
+                <View key={id} style={s.skel} />
+              ))}
+            </View>
+          </>
+        )}
+
+        {(phase === "candidates" ||
+          phase === "hiring" ||
+          phase === "delivering" ||
+          phase === "done" ||
+          (phase === "blocked" && sub.trigger)) && (
+          <View style={{ gap: 8 }}>
+            {sub.cands.map((cnd, j) => (
+              <FadeIn key={cnd.name} delay={j * 70}>
+                <CandidateRow
+                  cnd={cnd}
+                  picked={
+                    j === sub.pickIdx &&
+                    (phase === "hiring" || phase === "delivering" || phase === "done")
+                  }
+                  dim={
+                    (phase === "hiring" || phase === "delivering" || phase === "done") &&
+                    j !== sub.pickIdx
+                      ? true
+                      : phase === "blocked" && cnd.over
+                  }
+                />
+              </FadeIn>
+            ))}
+          </View>
+        )}
+
+        {phase === "hiring" && pick && (
+          <View style={s.settle}>
+            <View style={s.settleIco}>
+              <Text style={{ color: c.accentBright, fontSize: 12 }}>⇄</Text>
+            </View>
+            <Text style={s.settleText}>
+              Escrowing {usd(sub.price)} to {pick.name} · x402 · USDC
+            </Text>
+            <Mono style={s.settleTx}>{sub.tx}</Mono>
+          </View>
+        )}
+        {phase === "delivering" && pick && (
+          <View style={{ marginTop: 12 }}>
+            <ProgressBar pct={64} height={5} shimmer />
+            <Text style={s.deliverText}>{pick.name} is delivering the work…</Text>
+          </View>
+        )}
+        {phase === "done" && pick && (
+          <View style={s.review}>
+            <Text style={s.reviewStars}>{stars(pick.rating)}</Text>
+            <Text style={s.reviewText} numberOfLines={1}>
+              {sub.review}
+            </Text>
+            <Mono style={{ color: c.earnBright, fontSize: 12 }}>−{usd(sub.price)}</Mono>
+          </View>
+        )}
+        {phase === "blocked" && sub.trigger && (
+          <View style={s.block}>
+            <Text style={s.blockText}>🛑 Spend firewall — {blockedMsg ?? "budget exhausted"}</Text>
+          </View>
+        )}
+      </View>
+    </View>
+  );
+}
+
+function CandidateRow({
+  cnd,
+  picked,
+  dim,
+}: {
+  cnd: { name: string; rating: number; price: number; over: boolean };
+  picked: boolean;
+  dim: boolean;
+}) {
+  return (
+    <View style={[s.cand, picked && s.candPick, dim && { opacity: 0.34 }]}>
+      <View style={s.candAv}>
+        <Text style={{ color: "#C9C3FF", fontSize: 10, fontFamily: font.semibold }}>
+          {initials(cnd.name)}
         </Text>
       </View>
       <View style={{ flex: 1, minWidth: 0 }}>
-        <Text numberOfLines={1} style={s.feedLabel}>
-          {row.label}
+        <Text style={s.candName} numberOfLines={1}>
+          {cnd.name}
         </Text>
-        <Mono style={s.feedMeta}>
-          {row.tx} · {row.time}
-        </Mono>
+        {cnd.over && <Text style={s.over}>over budget</Text>}
       </View>
-      <Mono color={inbound ? c.earnBright : c.spend} style={{ fontSize: 13 }}>
-        {row.amount}
+      {picked && (
+        <View style={s.hiredTag}>
+          <Text
+            style={{
+              color: "#0F1712",
+              fontSize: 8.5,
+              fontFamily: font.semibold,
+              letterSpacing: 0.4,
+            }}
+          >
+            HIRED
+          </Text>
+        </View>
+      )}
+      <Mono style={{ fontSize: 11, color: c.faint, marginLeft: 6 }}>★{cnd.rating.toFixed(2)}</Mono>
+      <Mono color={picked ? c.earnBright : c.text} style={{ fontSize: 12.5, marginLeft: 8 }}>
+        {usd(cnd.price)}
       </Mono>
-    </Pressable>
+    </View>
   );
 }
 
-function toRow(e: LedgerEntry): Row {
-  const id = e.txId || "";
-  const short = id.length > 10 ? `${id.slice(0, 6)}…${id.slice(-4)}` : id || "—";
-  return {
-    label: `${e.counterparty} · ${e.resource}`,
-    amount: `${e.direction === "in" ? "+" : "−"}$${Number(e.usdc).toFixed(2)}`,
-    dir: e.direction,
-    tx: short,
-    time: "live",
-  };
+function DoneSummary({
+  plan,
+  spent,
+  hiredCount,
+}: {
+  plan: EconomyPlan;
+  spent: number;
+  hiredCount: number;
+}) {
+  const blocked = Boolean(plan.blocked);
+  const avg = !blocked
+    ? plan.subs.reduce((a, sub) => a + (sub.cands[sub.pickIdx]?.rating ?? 0), 0) / plan.subs.length
+    : 0;
+  return (
+    <View style={[s.done, blocked && s.doneBlocked]}>
+      <Text style={s.doneHead}>{blocked ? "🛑 Stopped within budget" : "✓ Task delivered"}</Text>
+      {blocked && (
+        <Text style={s.doneSub}>
+          {plan.blocked} Otto stopped rather than overspend — exactly what the spend firewall
+          guarantees.
+        </Text>
+      )}
+      <View style={s.doneStats}>
+        <Stat k="AGENTS HIRED" v={`${hiredCount}${blocked ? ` / ${plan.subs.length}` : ""}`} />
+        <Stat k="SPENT" v={usd(spent)} color={c.accentBright} />
+        <Stat k="BUDGET" v={usd(plan.budget)} />
+        {!blocked && <Stat k="AVG RATING" v={`★${avg.toFixed(2)}`} color={c.earnBright} />}
+      </View>
+    </View>
+  );
+}
+function Stat({ k, v, color }: { k: string; v: string; color?: string }) {
+  return (
+    <View>
+      <Text style={s.statK}>{k}</Text>
+      <Mono color={color} style={{ fontSize: 19, marginTop: 4, ...tabular }}>
+        {v}
+      </Mono>
+    </View>
+  );
+}
+
+/* ── Small animated primitives ─────────────────────────────────────────────── */
+function FadeIn({ children, delay = 0 }: { children: ReactNode; delay?: number }) {
+  const a = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const anim = Animated.timing(a, {
+      toValue: 1,
+      duration: 320,
+      delay,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: true,
+    });
+    anim.start();
+    return () => anim.stop();
+  }, [a, delay]);
+  return (
+    <Animated.View
+      style={{
+        opacity: a,
+        transform: [{ translateY: a.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }],
+      }}
+    >
+      {children}
+    </Animated.View>
+  );
+}
+function SourcingDots() {
+  const a = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.timing(a, {
+        toValue: 1,
+        duration: 900,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [a]);
+  return (
+    <View style={{ flexDirection: "row", gap: 5 }}>
+      {["a", "b", "c"].map((id, i) => (
+        <Animated.View
+          key={id}
+          style={{
+            width: 6,
+            height: 6,
+            borderRadius: 3,
+            backgroundColor: c.accent2,
+            opacity: a.interpolate({
+              inputRange: [0, (i + 1) / 4, (i + 2) / 4, 1],
+              outputRange: [0.3, 1, 0.3, 0.3],
+            }),
+          }}
+        />
+      ))}
+    </View>
+  );
+}
+function OttoMarkPulse() {
+  const a = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.timing(a, {
+        toValue: 1,
+        duration: 2400,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [a]);
+  return (
+    <View style={s.ottoMark}>
+      <Animated.View
+        style={[
+          s.ring,
+          {
+            opacity: a.interpolate({ inputRange: [0, 0.8, 1], outputRange: [0.5, 0, 0] }),
+            transform: [{ scale: a.interpolate({ inputRange: [0, 1], outputRange: [0.7, 2.2] }) }],
+          },
+        ]}
+      />
+      <LinearGradient
+        colors={grad.logoMark}
+        start={{ x: 0.2, y: 0 }}
+        end={{ x: 0.9, y: 1 }}
+        style={s.ottoCore}
+      >
+        <View style={s.ottoCoreRing} />
+      </LinearGradient>
+    </View>
+  );
 }
 
 const s = StyleSheet.create({
@@ -375,33 +704,6 @@ const s = StyleSheet.create({
     letterSpacing: -0.5,
     marginTop: 3,
   },
-
-  hero: {
-    marginTop: 20,
-    borderRadius: 28,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
-    padding: 22,
-    overflow: "hidden",
-  },
-  heroOrb: {
-    position: "absolute",
-    right: -70,
-    top: -90,
-    width: 240,
-    height: 240,
-    borderRadius: 120,
-    opacity: 0.55,
-  },
-  heroLabel: { color: c.faint, fontSize: 11, letterSpacing: 1.1, fontFamily: font.medium },
-  balanceRow: { flexDirection: "row", alignItems: "flex-end", gap: 9, marginTop: 9 },
-  balance: { fontSize: 36, letterSpacing: -1, ...tabular },
-  usdc: { color: c.faint, fontSize: 11, paddingBottom: 6, fontFamily: font.regular },
-  pills: { flexDirection: "row", gap: 9, marginTop: 18 },
-  statPill: { flex: 1, padding: 12, borderRadius: 16, borderWidth: 1 },
-  statLabel: { color: c.faint, fontSize: 10, letterSpacing: 0.4, fontFamily: font.regular },
-  statVal: { fontSize: 15, marginTop: 4, ...tabular },
-
   walletChip: {
     flexDirection: "row",
     alignItems: "center",
@@ -420,26 +722,35 @@ const s = StyleSheet.create({
   walletChipText: { color: c.text, fontSize: 12.5, fontFamily: font.medium },
   wDot: { width: 7, height: 7, borderRadius: 4 },
 
-  composerTitle: {
+  intro: { marginTop: 22 },
+  introKicker: { color: c.faint, fontSize: 11, letterSpacing: 1.4, fontFamily: font.medium },
+  introBig: {
     color: c.text,
-    fontSize: 16,
+    fontSize: 27,
     fontFamily: font.semibold,
-    letterSpacing: -0.3,
-    marginTop: 22,
+    letterSpacing: -0.7,
+    marginTop: 10,
+    lineHeight: 32,
   },
-  composerSub: {
-    color: c.muted,
-    fontSize: 12,
-    marginTop: 4,
-    lineHeight: 17,
+  introInput: {
+    marginTop: 20,
+    minHeight: 58,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+    backgroundColor: "rgba(255,255,255,0.045)",
+    color: c.text,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    fontSize: 15.5,
     fontFamily: font.regular,
+    textAlignVertical: "top",
   },
-
   budgetRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    marginTop: 12,
+    marginTop: 14,
     flexWrap: "wrap",
   },
   budgetLabel: { color: c.faint, fontSize: 10.5, letterSpacing: 0.8, fontFamily: font.medium },
@@ -453,10 +764,7 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  bChipOn: {
-    borderColor: "rgba(169,160,255,0.34)",
-    backgroundColor: "rgba(169,160,255,0.16)",
-  },
+  bChipOn: { borderColor: "rgba(169,160,255,0.34)", backgroundColor: "rgba(169,160,255,0.16)" },
   bCustom: {
     flexDirection: "row",
     alignItems: "center",
@@ -468,84 +776,259 @@ const s = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.08)",
     backgroundColor: "rgba(10,10,11,0.5)",
   },
-  bCustomDollar: { color: c.faint, fontSize: 12.5, fontFamily: font.mono },
-  bCustomInput: {
-    minWidth: 44,
+  bDollar: { color: c.faint, fontSize: 12.5, fontFamily: font.mono },
+  bInput: {
+    minWidth: 46,
     color: c.text,
     fontSize: 12.5,
     fontFamily: font.mono,
     padding: 0,
     ...tabular,
   },
-
-  goalRow: { flexDirection: "row", gap: 9, marginTop: 14 },
-  goalInput: {
-    flex: 1,
-    height: 46,
-    borderRadius: 15,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
-    backgroundColor: "rgba(255,255,255,0.045)",
-    color: c.text,
-    paddingHorizontal: 15,
-    fontSize: 13.5,
-    fontFamily: font.regular,
-  },
-  goalBtn: { borderRadius: 15, overflow: "hidden" },
-  goalBtnBg: { height: 46, paddingHorizontal: 20, alignItems: "center", justifyContent: "center" },
-  goalBtnText: { color: "#14121F", fontSize: 14, fontFamily: font.semibold },
-
-  taskCard: {
-    marginTop: 14,
-    borderRadius: 26,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.075)",
-    padding: 19,
-  },
-  taskTop: { flexDirection: "row", alignItems: "center", gap: 9 },
-  taskRun: {
-    color: c.faint,
-    fontSize: 10.5,
-    letterSpacing: 0.9,
-    fontFamily: font.regular,
-    flex: 1,
-  },
-  taskTitle: {
-    color: c.text,
-    fontSize: 16.5,
-    fontFamily: font.semibold,
-    letterSpacing: -0.3,
-    marginTop: 11,
-  },
-  taskDetail: { color: c.muted, fontSize: 12, marginTop: 5, fontFamily: font.regular },
-
-  sectionHead: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginTop: 26,
-    marginBottom: 12,
-  },
-  sectionTitle: { color: c.text, fontSize: 16, fontFamily: font.semibold, letterSpacing: -0.3 },
-  link: { color: c.accent2, fontSize: 12, fontFamily: font.medium },
-
-  feedCard: { borderRadius: 24, borderWidth: 1, borderColor: c.border, paddingHorizontal: 16 },
-  feedRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    paddingVertical: 13,
-    borderBottomWidth: 1,
-    borderBottomColor: c.hairline,
-  },
-  feedIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 10,
-    borderWidth: 1,
+  goBtn: {
+    marginTop: 18,
+    height: 52,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
   },
-  feedLabel: { color: c.text, fontSize: 12.5, fontFamily: font.regular },
-  feedMeta: { color: c.dim, fontSize: 10, marginTop: 3 },
+  goBtnText: { color: "#14121F", fontSize: 15, fontFamily: font.semibold },
+  tryLabel: {
+    color: c.faint,
+    fontSize: 11,
+    letterSpacing: 0.6,
+    fontFamily: font.medium,
+    marginTop: 24,
+    marginBottom: 11,
+  },
+  exChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: c.border,
+    backgroundColor: "rgba(255,255,255,0.028)",
+  },
+  exText: { flex: 1, color: c.muted, fontSize: 13, fontFamily: font.regular },
+  exArrow: { color: c.accent2, fontSize: 15 },
+
+  topCard: { marginTop: 18, borderRadius: 22, borderWidth: 1, borderColor: c.border, padding: 18 },
+  topKicker: { color: c.faint, fontSize: 10, letterSpacing: 1.1, fontFamily: font.medium },
+  topGoal: {
+    color: c.text,
+    fontSize: 17,
+    fontFamily: font.semibold,
+    letterSpacing: -0.3,
+    marginTop: 6,
+  },
+  restart: {
+    height: 32,
+    paddingHorizontal: 12,
+    borderRadius: 11,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+    backgroundColor: "rgba(255,255,255,0.05)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  restartText: { color: c.muted, fontSize: 12, fontFamily: font.regular },
+  meterLbl: { color: c.faint, fontSize: 10.5, letterSpacing: 0.6, fontFamily: font.medium },
+
+  otto: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    marginTop: 14,
+    padding: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "rgba(169,160,255,0.2)",
+  },
+  ottoMark: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
+  ring: {
+    position: "absolute",
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1.5,
+    borderColor: "rgba(179,170,255,0.55)",
+  },
+  ottoCore: {
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  ottoCoreRing: {
+    width: 11,
+    height: 11,
+    borderRadius: 6,
+    borderWidth: 2.5,
+    borderColor: "#131320",
+  },
+  ottoDot: { width: 6, height: 6, borderRadius: 3 },
+  ottoLab: { color: c.faint, fontSize: 10, letterSpacing: 1.2, fontFamily: font.medium },
+  ottoStatus: {
+    color: c.text,
+    fontSize: 14,
+    fontFamily: font.medium,
+    marginTop: 5,
+    letterSpacing: -0.2,
+  },
+
+  card: {
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: c.border,
+    backgroundColor: "rgba(255,255,255,0.028)",
+    padding: 16,
+  },
+  cardOn: { borderColor: "rgba(169,160,255,0.28)" },
+  cardOk: { borderColor: "rgba(143,227,180,0.24)" },
+  cardBlk: { borderColor: "rgba(255,140,130,0.3)" },
+  node: { width: 26, height: 26, borderRadius: 13, alignItems: "center", justifyContent: "center" },
+  nodeWait: {
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+  },
+  nodeRun: { backgroundColor: "#C4BCFF" },
+  nodeOk: { backgroundColor: "#8FE3B4" },
+  nodeBlock: {
+    backgroundColor: "rgba(255,120,110,0.14)",
+    borderWidth: 1,
+    borderColor: "rgba(255,140,130,0.32)",
+  },
+  cardTitle: { color: c.text, fontSize: 14, fontFamily: font.semibold, letterSpacing: -0.2 },
+  roleTag: {
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
+    borderRadius: 7,
+    borderWidth: 1,
+    borderColor: "rgba(169,160,255,0.22)",
+    backgroundColor: "rgba(169,160,255,0.1)",
+  },
+  roleTagText: {
+    color: c.accentBright,
+    fontSize: 8.5,
+    letterSpacing: 0.4,
+    fontFamily: font.medium,
+  },
+  cardDetail: { color: c.faint, fontSize: 11.5, marginTop: 3, fontFamily: font.regular },
+
+  queued: { color: "rgba(242,241,246,0.3)", fontSize: 12, fontFamily: font.regular },
+  skipped: {
+    color: "rgba(242,241,246,0.4)",
+    fontSize: 12,
+    fontFamily: font.regular,
+    paddingVertical: 4,
+  },
+  sourcingText: { color: c.muted, fontSize: 12, fontFamily: font.regular },
+  skel: {
+    flex: 1,
+    height: 46,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.05)",
+    backgroundColor: "rgba(255,255,255,0.04)",
+  },
+
+  cand: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+    backgroundColor: "rgba(255,255,255,0.03)",
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  candPick: { borderColor: "rgba(143,227,180,0.4)", backgroundColor: "rgba(143,227,180,0.07)" },
+  candAv: {
+    width: 28,
+    height: 28,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#22212E",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.07)",
+    marginRight: 10,
+  },
+  candName: { color: c.text, fontSize: 12.5, fontFamily: font.medium },
+  over: { color: c.danger, fontSize: 9, marginTop: 2, fontFamily: font.regular },
+  hiredTag: {
+    backgroundColor: "#A9EFC8",
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+
+  settle: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 12,
+    paddingVertical: 11,
+    paddingHorizontal: 13,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: "rgba(169,160,255,0.22)",
+    backgroundColor: "rgba(169,160,255,0.07)",
+  },
+  settleIco: {
+    width: 26,
+    height: 26,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(169,160,255,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(169,160,255,0.24)",
+  },
+  settleText: { flex: 1, color: c.muted, fontSize: 11.5, fontFamily: font.regular },
+  settleTx: { fontSize: 10, color: c.dim },
+  deliverText: { color: c.muted, fontSize: 11.5, marginTop: 8, fontFamily: font.regular },
+  review: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 12,
+    paddingVertical: 11,
+    paddingHorizontal: 13,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: "rgba(143,227,180,0.2)",
+    backgroundColor: "rgba(143,227,180,0.06)",
+  },
+  reviewStars: { color: c.earnBright, fontSize: 12, letterSpacing: 1 },
+  reviewText: { flex: 1, color: c.muted, fontSize: 11.5, fontFamily: font.regular },
+  block: {
+    marginTop: 12,
+    paddingVertical: 11,
+    paddingHorizontal: 13,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: "rgba(255,140,130,0.28)",
+    backgroundColor: "rgba(255,120,110,0.09)",
+  },
+  blockText: { color: "#FFD0CA", fontSize: 12, fontFamily: font.regular, lineHeight: 17 },
+
+  done: {
+    marginTop: 16,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: "rgba(143,227,180,0.24)",
+    backgroundColor: "rgba(143,227,180,0.07)",
+    padding: 20,
+  },
+  doneBlocked: { borderColor: "rgba(255,140,130,0.3)", backgroundColor: "rgba(255,120,110,0.08)" },
+  doneHead: { color: c.text, fontSize: 16, fontFamily: font.semibold },
+  doneSub: { color: c.muted, fontSize: 12, marginTop: 7, lineHeight: 17, fontFamily: font.regular },
+  doneStats: { flexDirection: "row", flexWrap: "wrap", gap: 22, marginTop: 16 },
+  statK: { color: c.faint, fontSize: 10, letterSpacing: 0.5, fontFamily: font.medium },
 });

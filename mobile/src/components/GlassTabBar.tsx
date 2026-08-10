@@ -26,11 +26,11 @@ const INACTIVE = "rgba(242,241,246,0.42)";
 const ACTIVE_FG = "#14121F";
 
 // Left-to-right order, matching the tab route filenames. `index` is Home.
-const TAB_ORDER = ["index", "marketplace", "task", "wallet", "profile"] as const;
+const TAB_ORDER = ["index", "marketplace", "treasury", "wallet", "profile"] as const;
 const TAB_LABELS: Record<string, string> = {
   index: "Home",
   marketplace: "Marketplace",
-  task: "Active task",
+  treasury: "Treasury",
   wallet: "Wallet",
   profile: "Otto",
 };
@@ -70,11 +70,11 @@ function MarketIcon({ color }: IconProps) {
     </Svg>
   );
 }
-function TaskIcon({ color }: IconProps) {
+function TreasuryIcon({ color }: IconProps) {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M13 3L5 13.5h5.5L11 21l8-10.5h-5.5z"
+        d="M4 20V10M9.5 20V6M15 20v-4M20.5 20V4"
         stroke={color}
         strokeWidth={1.9}
         strokeLinecap="round"
@@ -133,7 +133,7 @@ function ProfileIcon({ color }: IconProps) {
 const ICONS: Record<string, (p: IconProps) => ReactElement> = {
   index: HomeIcon,
   marketplace: MarketIcon,
-  task: TaskIcon,
+  treasury: TreasuryIcon,
   wallet: WalletIcon,
   profile: ProfileIcon,
 };

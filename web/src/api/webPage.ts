@@ -238,6 +238,19 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
   .econDoneStats{display:flex;gap:26px;margin-top:16px;flex-wrap:wrap}
   .econDoneStat .k{font-size:10.5px;letter-spacing:0.06em;color:rgba(242,241,246,0.42)}
   .econDoneStat .v{font-family:var(--mono);font-size:22px;margin-top:5px}
+
+  /* ── Treasury ──────────────────────────────────────────────────────────── */
+  .treTile{flex:1;min-width:120px;padding:13px 15px;border-radius:15px;border:1px solid rgba(255,255,255,0.07);background:rgba(255,255,255,0.03)}
+  .treK{font-size:10px;letter-spacing:0.06em;color:rgba(242,241,246,0.42)}
+  .treV{font-size:19px;margin-top:5px}
+  .treBar{flex:1;border-radius:4px 4px 2px 2px;min-height:4px;background:linear-gradient(180deg,#8F87F1,#4B4681);transition:height .4s cubic-bezier(.2,.8,.2,1)}
+  .treBar.last{background:linear-gradient(180deg,#A9EFC8,#5DA582)}
+  .treSpoke{display:flex;flex-direction:column;align-items:center;gap:7px;flex:none}
+  .treSpokeDot{width:40px;height:40px;border-radius:14px;display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);font-size:15px;transition:all .3s}
+  .treSpoke.on .treSpokeDot{border-color:rgba(169,160,255,0.45);background:rgba(169,160,255,0.16);box-shadow:0 0 0 5px rgba(143,135,241,0.12)}
+  .treSpokeLab{font-size:9.5px;letter-spacing:0.06em;color:rgba(242,241,246,0.4)}
+  .treSpoke.on .treSpokeLab{color:#C8C1FF}
+  .treArrow{color:rgba(242,241,246,0.26);font-size:14px;flex:none}
 </style>
 </head>
 <body>
@@ -401,6 +414,52 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
 
         <div id="econPipe" class="econPipe"></div>
         <div id="econDone" class="econDone" style="display:none"></div>
+      </div>
+    </section>
+
+    <!-- TREASURY -->
+    <section class="view" id="view-treasury">
+      <div style="display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:18px;align-items:start">
+        <section class="hero" style="padding:26px 28px">
+          <div class="orb" style="right:-80px;bottom:-140px;top:auto;background:conic-gradient(from 240deg,#101018,#5F587E,#DDD8F2,#8B84B4,#26243A,#101018);filter:blur(30px);opacity:.5"></div>
+          <div style="position:relative;display:flex;align-items:center;gap:8px"><span class="liveDot" id="treLiveDot" style="background:rgba(242,241,246,0.4)"></span><span style="font-size:11.5px;letter-spacing:0.1em;color:rgba(242,241,246,0.42)">TREASURY · USDC <span id="treLiveLab"></span></span></div>
+          <div style="position:relative;display:flex;align-items:flex-end;gap:14px;margin-top:10px">
+            <div class="mono" id="treBal" style="font-size:52px;font-weight:500;letter-spacing:-0.04em;line-height:1">$5.00</div>
+            <div class="mono" id="treGrown" style="font-size:16px;color:#A9EFC8;padding-bottom:9px">+$0.00</div>
+          </div>
+          <div id="treSub" style="position:relative;font-size:12.5px;color:rgba(242,241,246,0.44);margin-top:12px">Started at $5.00 · 0 business cycles · 0% margin</div>
+
+          <div style="position:relative;display:flex;gap:12px;margin-top:22px;flex-wrap:wrap">
+            <div class="treTile"><div class="treK">REVENUE</div><div class="mono treV" id="treRev" style="color:#A9EFC8">$0.00</div></div>
+            <div class="treTile"><div class="treK">AGENT COST</div><div class="mono treV" id="treCost" style="color:#C8C1FF">$0.00</div></div>
+            <div class="treTile"><div class="treK">NET PROFIT</div><div class="mono treV" id="treNet" style="color:#A9EFC8">$0.00</div></div>
+            <div class="treTile"><div class="treK">CAPACITY</div><div class="mono treV" id="treCap">1.0×</div></div>
+          </div>
+
+          <div style="position:relative;display:flex;align-items:center;gap:10px;margin-top:22px;flex-wrap:wrap">
+            <button class="btnPri" id="treRun" style="height:44px">▶ Run Otto's business</button>
+            <button class="btnGhost" id="treReset" style="height:44px;width:44px;padding:0">↺</button>
+            <div style="display:flex;align-items:center;gap:7px;margin-left:6px"><span style="font-size:11px;letter-spacing:0.06em;color:rgba(242,241,246,0.4)">REINVEST</span><div class="seg" id="treReinvest"><div class="t" data-re="50">50%</div><div class="t on" data-re="70">70%</div><div class="t" data-re="90">90%</div></div><span style="font-size:11px;color:rgba(242,241,246,0.34)">of profit → capacity</span></div>
+          </div>
+        </section>
+
+        <section class="gcard" style="padding:22px 24px">
+          <div style="font-size:14px;font-weight:500">The flywheel</div>
+          <div style="font-size:12px;color:rgba(242,241,246,0.38);margin-top:4px">Earn → reinvest → hire better → earn more</div>
+          <div id="treFlywheel" style="display:flex;align-items:center;justify-content:space-between;margin-top:20px"></div>
+          <div style="margin-top:22px;padding-top:18px;border-top:1px solid rgba(255,255,255,0.06);font-size:11.5px;color:rgba(242,241,246,0.36);line-height:1.6">Otto sells its skills to other agents, hires sub-agents to deliver, keeps the margin, and reinvests it — with no human touching a credit card after the $5 seed.</div>
+        </section>
+
+        <section class="gcard" style="grid-column:span 2;padding:22px 24px">
+          <div style="display:flex;align-items:center;justify-content:space-between"><div style="font-size:14px;font-weight:500">Treasury growth</div><span class="mono" style="font-size:11px;color:rgba(242,241,246,0.3)">COMPOUNDING</span></div>
+          <div id="treChart" style="display:flex;align-items:flex-end;gap:4px;height:150px;margin-top:18px"></div>
+          <div style="font-size:11px;color:rgba(242,241,246,0.32);margin-top:12px">Balance per cycle · reinvested profit buys earning capacity, so each cycle earns more than the last.</div>
+        </section>
+
+        <section class="gcard" style="grid-column:span 2;padding:22px 24px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><div style="display:flex;align-items:center;gap:9px"><span class="liveDot"></span><span style="font-size:14px;font-weight:500">Business activity</span></div><span class="mono" style="font-size:10.5px;color:rgba(242,241,246,0.3)">EARN / HIRE</span></div>
+          <div id="treFeed"></div>
+        </section>
       </div>
     </section>
 
@@ -572,16 +631,18 @@ var SVG = 'width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="curren
 var ICONS = {
   market:'<svg '+SVG+'><rect x="3" y="3" width="7" height="7" rx="1.6"/><rect x="14" y="3" width="7" height="7" rx="1.6"/><rect x="3" y="14" width="7" height="7" rx="1.6"/><rect x="14" y="14" width="7" height="7" rx="1.6"/></svg>',
   economy:'<svg '+SVG+'><circle cx="12" cy="5" r="2.1"/><circle cx="5" cy="18" r="2.1"/><circle cx="19" cy="18" r="2.1"/><path d="M12 7.1v2.8M10.6 11.9l-4 4.1M13.4 11.9l4 4.1"/><circle cx="12" cy="11.5" r="1.5"/></svg>',
+  treasury:'<svg '+SVG+'><path d="M4 20V10M9.5 20V6M15 20v-4M20.5 20V3.5"/></svg>',
   task:'<svg '+SVG+'><polyline points="3 12 7 12 10 4 14 20 17 12 21 12"/></svg>',
   wallet:'<svg '+SVG+'><rect x="3" y="6" width="18" height="13" rx="2.4"/><path d="M3 10h18"/><circle cx="16.5" cy="14.5" r="1.1" fill="currentColor" stroke="none"/></svg>',
   receipts:'<svg '+SVG+'><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6"/><path d="M9 12h5"/></svg>',
   rules:'<svg '+SVG+'><path d="M12 3l7 3v5c0 4.6-3.1 7.8-7 9-3.9-1.2-7-4.4-7-9V6z"/><path d="M9.5 12l1.8 1.8L15 10"/></svg>'
 };
-var NAV = [ {id:'market',label:'Marketplace',count:'18'}, {id:'economy',label:'Agent Economy',count:''}, {id:'task',label:'Active task',count:'1'}, {id:'wallet',label:'Wallet',count:''}, {id:'receipts',label:'Receipts',count:'204'}, {id:'rules',label:'Rules & limits',count:''} ];
-var TITLES = { market:'Marketplace', economy:'Agent Economy', task:'Active task', wallet:'Wallet', receipts:'Receipts', rules:'Rules & limits' };
+var NAV = [ {id:'market',label:'Marketplace',count:'18'}, {id:'economy',label:'Agent Economy',count:''}, {id:'treasury',label:'Treasury',count:''}, {id:'task',label:'Active task',count:'1'}, {id:'wallet',label:'Wallet',count:''}, {id:'receipts',label:'Receipts',count:'204'}, {id:'rules',label:'Rules & limits',count:''} ];
+var TITLES = { market:'Marketplace', economy:'Agent Economy', treasury:'Treasury', task:'Active task', wallet:'Wallet', receipts:'Receipts', rules:'Rules & limits' };
 var SUBS = {
   market:'Agents hiring agents — Otto is taking 4 gigs and selling 6 skills.',
   economy:'Give Otto a goal — watch it break the work into roles and hire specialist agents, live.',
+  treasury:'Otto\\u2019s autonomous business — it earns, reinvests, and compounds its own treasury.',
   task:'Otto is executing a trip booking and settling each sub-agent per task.',
   wallet:'Balance, rails and the reserve Otto draws from.',
   receipts:'Every settled micropayment, signed and auditable on-chain.',
@@ -1537,6 +1598,75 @@ function econInit(){
   for (var i=0;i<chips.length;i++) chips[i].addEventListener('click', function(){ var v=this.getAttribute('data-ex'); document.getElementById('econInput').value=v; econStart(v); });
 }
 econInit();
+
+// ── Treasury: Otto's compounding autonomous business ─────────────────────────
+var TRE = { balance:5, seed:5, capacity:1, revenue:0, cost:0, cycles:0, history:[5], events:[], reinvest:70, timer:null, spoke:0 };
+var TRE_FLY = ['EARN','REINVEST','HIRE','GROW'];
+var TRE_GLYPH = ['$','↻','⇄','↑'];
+function treR2(x){ return Math.round(x*100)/100; }
+function treHex(){ var h='0123456789abcdef',a=''; for(var i=0;i<4;i++) a+=h[Math.floor(Math.random()*16)]; return '0x'+a+'…'+h[Math.floor(Math.random()*16)]+h[Math.floor(Math.random()*16)]; }
+function treStep(){
+  var dud = Math.random()<0.10;
+  var revenue = treR2(0.55*TRE.capacity*(0.85+Math.random()*0.3)*(dud?0.4:1));
+  var cost = treR2(dud ? revenue*1.15 : revenue*(0.42+Math.random()*0.16));
+  var profit = treR2(revenue-cost);
+  TRE.balance = treR2(TRE.balance+profit);
+  TRE.capacity += Math.max(0,profit)*(TRE.reinvest/100)*0.16;
+  TRE.revenue = treR2(TRE.revenue+revenue);
+  TRE.cost = treR2(TRE.cost+cost);
+  TRE.cycles++;
+  TRE.history.push(TRE.balance); if(TRE.history.length>40) TRE.history.shift();
+  TRE.events.unshift({k:'in',label:'Sold skill · client agent',amt:revenue,tx:treHex()});
+  TRE.events.unshift({k:'out',label:'Hired sub-agent',amt:cost,tx:treHex()});
+  if(TRE.events.length>8) TRE.events=TRE.events.slice(0,8);
+  TRE.spoke=(TRE.spoke+1)%4;
+  if(TRE.cycles%3===0) fetch('/api/earn/simulate',{method:'POST'}).catch(function(){});
+  treRender();
+}
+function treRender(){
+  var net=treR2(TRE.revenue-TRE.cost), grown=treR2(TRE.balance-TRE.seed);
+  var margin=TRE.revenue>0?Math.round(100*net/TRE.revenue):0;
+  document.getElementById('treBal').textContent=usd(TRE.balance);
+  var g=document.getElementById('treGrown'); g.textContent=(grown>=0?'+':'−')+usd(Math.abs(grown)); g.style.color=grown>=0?'#A9EFC8':'#FFB3AC';
+  document.getElementById('treSub').textContent='Started at '+usd(TRE.seed)+' · '+TRE.cycles+' business cycles · '+margin+'% margin';
+  document.getElementById('treRev').textContent=usd(TRE.revenue);
+  document.getElementById('treCost').textContent=usd(TRE.cost);
+  var n=document.getElementById('treNet'); n.textContent=(net>=0?'':'−')+usd(Math.abs(net)); n.style.color=net>=0?'#A9EFC8':'#FFB3AC';
+  document.getElementById('treCap').textContent=TRE.capacity.toFixed(1)+'×';
+  var max=Math.max.apply(null,TRE.history.concat([TRE.seed*1.2])), min=Math.min.apply(null,TRE.history);
+  document.getElementById('treChart').innerHTML=TRE.history.map(function(v,i){
+    var h=8+((v-min)/Math.max(max-min,0.01))*130;
+    return '<div class="treBar'+(i===TRE.history.length-1?' last':'')+'" style="height:'+h+'px"></div>';
+  }).join('');
+  document.getElementById('treFeed').innerHTML=TRE.events.length
+    ? TRE.events.map(function(e){ return feedRow({ label:e.label, amount:(e.k==='in'?'+':'−')+usd(e.amt), dir:e.k, tx:e.tx, time:'settled' }); }).join('')
+    : '<div style="font-size:12px;color:rgba(242,241,246,0.4);padding:16px 0;text-align:center">Press play — watch Otto earn, hire, and compound.</div>';
+  document.getElementById('treFlywheel').innerHTML=TRE_FLY.map(function(lab,i){
+    var on = (TRE.timer && i===TRE.spoke) ? ' on' : '';
+    return '<div class="treSpoke'+on+'"><div class="treSpokeDot">'+TRE_GLYPH[i]+'</div><div class="treSpokeLab">'+lab+'</div></div>' + (i<3 ? '<div class="treArrow">→</div>' : '');
+  }).join('');
+  document.getElementById('treLiveDot').style.background = TRE.timer ? '#8FE3B4' : 'rgba(242,241,246,0.4)';
+  document.getElementById('treLiveLab').textContent = TRE.timer ? '· LIVE' : '';
+  document.getElementById('treRun').textContent = TRE.timer ? '⏸ Pause' : (TRE.cycles ? '▶ Resume' : '▶ Run Otto\\u2019s business');
+}
+function treToggle(){
+  if(TRE.timer){ clearInterval(TRE.timer); TRE.timer=null; }
+  else { TRE.timer=setInterval(function(){ if(TRE.cycles>=48){ clearInterval(TRE.timer); TRE.timer=null; treRender(); return; } treStep(); }, 750); }
+  treRender();
+}
+function treResetFn(){ if(TRE.timer){ clearInterval(TRE.timer); TRE.timer=null; } TRE.balance=5; TRE.capacity=1; TRE.revenue=0; TRE.cost=0; TRE.cycles=0; TRE.history=[5]; TRE.events=[]; TRE.spoke=0; treRender(); }
+function treInit(){
+  document.getElementById('treRun').addEventListener('click', treToggle);
+  document.getElementById('treReset').addEventListener('click', treResetFn);
+  var chips=document.querySelectorAll('#treReinvest .t');
+  for(var i=0;i<chips.length;i++) chips[i].addEventListener('click', function(){
+    TRE.reinvest=parseInt(this.getAttribute('data-re'),10);
+    var cs=document.querySelectorAll('#treReinvest .t');
+    for(var j=0;j<cs.length;j++) cs[j].className='t'+(cs[j].getAttribute('data-re')===String(TRE.reinvest)?' on':'');
+  });
+  treRender();
+}
+treInit();
 
 document.getElementById('runBtn').addEventListener('click', runTask);
 document.getElementById('goalInput').addEventListener('keydown', function(e){ if(e.key==='Enter') runTask(); });
