@@ -428,6 +428,7 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
             <div class="mono" id="treGrown" style="font-size:16px;color:#A9EFC8;padding-bottom:9px">+$0.00</div>
           </div>
           <div id="treSub" style="position:relative;font-size:12.5px;color:rgba(242,241,246,0.44);margin-top:12px">Started at $5.00 · 0 business cycles · 0% margin</div>
+          <div id="treNow" style="position:relative;margin-top:11px;font-size:12.5px;color:rgba(242,241,246,0.66);display:none"></div>
 
           <div style="position:relative;display:flex;gap:12px;margin-top:22px;flex-wrap:wrap">
             <div class="treTile"><div class="treK">REVENUE</div><div class="mono treV" id="treRev" style="color:#A9EFC8">$0.00</div></div>
@@ -457,7 +458,8 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
         </section>
 
         <section class="gcard" style="grid-column:span 2;padding:22px 24px">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><div style="display:flex;align-items:center;gap:9px"><span class="liveDot"></span><span style="font-size:14px;font-weight:500">Business activity</span></div><span class="mono" style="font-size:10.5px;color:rgba(242,241,246,0.3)">EARN / HIRE</span></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><div style="display:flex;align-items:center;gap:9px"><span class="liveDot"></span><span style="font-size:14px;font-weight:500">Detailed ledger</span></div><span style="font-size:12px;color:rgba(242,241,246,0.38)">Every skill Otto sold and every agent it hired — with the running balance</span></div>
+          <div style="display:grid;grid-template-columns:1.5fr 1.7fr 1fr 0.8fr 0.8fr;gap:14px;padding:13px 4px 10px;border-bottom:1px solid rgba(255,255,255,0.07);font-size:10px;letter-spacing:0.08em;color:rgba(242,241,246,0.32)"><div>COUNTERPARTY</div><div>WHAT</div><div>RECEIPT</div><div style="text-align:right">AMOUNT</div><div style="text-align:right">BALANCE</div></div>
           <div id="treFeed"></div>
         </section>
       </div>
@@ -1603,25 +1605,72 @@ econInit();
 var TRE = { balance:5, seed:5, capacity:1, revenue:0, cost:0, cycles:0, history:[5], events:[], reinvest:70, timer:null, spoke:0 };
 var TRE_FLY = ['EARN','REINVEST','HIRE','GROW'];
 var TRE_GLYPH = ['$','↻','⇄','↑'];
+// Skills Otto SELLS (revenue) and the client agents that buy them.
+var TRE_SKILLS = ['Itinerary optimisation','Expense reconciliation','Vendor negotiation','Calendar defrag','Subscription audit','Smart Regex Builder','Git Diff Explainer','Travel policy compliance','Receipt OCR & VAT','Roast My Commit'];
+var TRE_CLIENTS = ['Acme Ledger Bot','Halcyon Ops','Bluefin AI','Northwind Travel','VeriFly','Chronos','Meridian Finance','Cobalt CRM','Stratus Air','Orbit Assistant','Sable Legal','Kestrel Data'];
+// Sub-agents Otto HIRES (cost) and what each delivered.
+var TRE_HIRES = [
+  {agent:'Skyscout',task:'multi-city fare search'}, {agent:'Nomad Concierge',task:'hotel shortlist'},
+  {agent:'Ledgerly',task:'receipt OCR batch'}, {agent:'Reelcraft AI',task:'AI creator video'},
+  {agent:'Wordsmith',task:'ad copy variants'}, {agent:'Border Oracle',task:'visa & entry check'},
+  {agent:'Quant Lens',task:'metrics analysis'}, {agent:'Sentinel QA',task:'test & verify build'},
+  {agent:'Autopost AI',task:'schedule recurring posts'}, {agent:'Corepath',task:'API integration'},
+  {agent:'Aurora UX',task:'UI polish pass'}, {agent:'DeepScan',task:'market research'}
+];
+function treRand(a){ return a[Math.floor(Math.random()*a.length)]; }
+function treSplit(total,n){ if(n<=1) return [treR2(total)]; var a=treR2(total*(0.45+Math.random()*0.2)); return [a, treR2(total-a)]; }
 function treR2(x){ return Math.round(x*100)/100; }
 function treHex(){ var h='0123456789abcdef',a=''; for(var i=0;i<4;i++) a+=h[Math.floor(Math.random()*16)]; return '0x'+a+'…'+h[Math.floor(Math.random()*16)]+h[Math.floor(Math.random()*16)]; }
 function treStep(){
+  var cyc=TRE.cycles+1;
   var dud = Math.random()<0.10;
-  var revenue = treR2(0.55*TRE.capacity*(0.85+Math.random()*0.3)*(dud?0.4:1));
-  var cost = treR2(dud ? revenue*1.15 : revenue*(0.42+Math.random()*0.16));
-  var profit = treR2(revenue-cost);
-  TRE.balance = treR2(TRE.balance+profit);
-  TRE.capacity += Math.max(0,profit)*(TRE.reinvest/100)*0.16;
-  TRE.revenue = treR2(TRE.revenue+revenue);
-  TRE.cost = treR2(TRE.cost+cost);
-  TRE.cycles++;
+  var R = treR2(0.55*TRE.capacity*(0.85+Math.random()*0.3)*(dud?0.4:1));
+  var C = treR2(dud ? R*1.15 : R*(0.42+Math.random()*0.16));
+  var bal=TRE.balance, items=[];
+  // Otto SELLS skills → revenue (1–2 named client deals)
+  var sales=treSplit(R, (R>1.0 && Math.random()<0.7)?2:1);
+  for(var i=0;i<sales.length;i++){
+    var q=1+Math.floor(Math.random()*5);
+    bal=treR2(bal+sales[i]);
+    items.push({dir:'in', who:treRand(TRE_CLIENTS), detail:treRand(TRE_SKILLS), qty:q, amount:sales[i], bal:bal, tx:treHex(), t:cyc, onchain:false, explorer:''});
+  }
+  // Otto HIRES sub-agents → cost (1–2 named deliverables)
+  var hires=treSplit(C, (C>0.9 && Math.random()<0.6)?2:1);
+  for(var j=0;j<hires.length;j++){
+    var hr=treRand(TRE_HIRES);
+    bal=treR2(bal-hires[j]);
+    items.push({dir:'out', who:hr.agent, detail:hr.task, rating:treR2(4.7+Math.random()*0.29), amount:hires[j], bal:bal, tx:treHex(), t:cyc, onchain:false, explorer:''});
+  }
+  TRE.balance=bal;
+  TRE.capacity += Math.max(0,treR2(R-C))*(TRE.reinvest/100)*0.16;
+  TRE.revenue=treR2(TRE.revenue+R); TRE.cost=treR2(TRE.cost+C); TRE.cycles=cyc;
   TRE.history.push(TRE.balance); if(TRE.history.length>40) TRE.history.shift();
-  TRE.events.unshift({k:'in',label:'Sold skill · client agent',amt:revenue,tx:treHex()});
-  TRE.events.unshift({k:'out',label:'Hired sub-agent',amt:cost,tx:treHex()});
-  if(TRE.events.length>8) TRE.events=TRE.events.slice(0,8);
+  for(var k=0;k<items.length;k++) TRE.events.unshift(items[k]);
+  if(TRE.events.length>16) TRE.events=TRE.events.slice(0,16);
   TRE.spoke=(TRE.spoke+1)%4;
-  if(TRE.cycles%3===0) fetch('/api/earn/simulate',{method:'POST'}).catch(function(){});
+  // Every 3rd cycle, settle a real skill-sale on-chain and stamp the newest deal with the real tx.
+  if(cyc%3===0){
+    fetch('/api/earn/simulate',{method:'POST'}).then(function(r){return r.json();}).then(function(en){
+      for(var m=0;m<TRE.events.length;m++){ if(TRE.events[m].dir==='in'){ TRE.events[m].onchain=true; if(en&&en.txId){ TRE.events[m].tx=shortTx(en.txId); TRE.events[m].explorer=en.explorerUrl||''; } break; } }
+      treRender();
+    }).catch(function(){});
+  }
   treRender();
+}
+function treLedgerRow(e){
+  var inb = e.dir==='in';
+  var sub = inb ? 'bought a skill' : ('hired · ★'+(e.rating?e.rating.toFixed(2):'—'));
+  var what = inb ? (esc(e.detail)+(e.qty>1?' <span style="color:rgba(242,241,246,0.4)">×'+e.qty+'</span>':'')) : ('delivered: '+esc(e.detail));
+  var txHtml = e.onchain && e.explorer
+    ? '<a href="'+e.explorer+'" target="_blank" rel="noopener" class="mono" style="font-size:10.5px">'+e.tx+'</a>'
+    : '<span class="mono" style="font-size:10.5px;color:rgba(242,241,246,0.34)">'+e.tx+'</span>';
+  var badge = e.onchain ? ' <span style="font-size:8px;letter-spacing:0.04em;color:#8FE3B4;background:rgba(143,227,180,0.1);border:1px solid rgba(143,227,180,0.24);border-radius:5px;padding:1px 5px;margin-left:5px">ON-CHAIN</span>' : '';
+  return '<div style="display:grid;grid-template-columns:1.5fr 1.7fr 1fr 0.8fr 0.8fr;gap:14px;align-items:center;padding:12px 4px;border-bottom:1px solid rgba(255,255,255,0.045)">'
+    +'<div style="display:flex;align-items:center;gap:11px;min-width:0"><div style="'+iconStyle(e.dir)+'">'+(inb?'↑':'↓')+'</div><div style="min-width:0"><div style="font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(e.who)+'</div><div style="font-size:10px;color:rgba(242,241,246,0.3);margin-top:3px">'+sub+'</div></div></div>'
+    +'<div style="font-size:12px;color:rgba(242,241,246,0.62);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+what+'</div>'
+    +'<div style="min-width:0;white-space:nowrap;overflow:hidden">'+txHtml+badge+'</div>'
+    +'<div style="text-align:right"><span style="'+amtStyle(e.dir)+'">'+(inb?'+':'−')+usd(e.amount)+'</span></div>'
+    +'<div class="mono" style="text-align:right;font-size:12px;color:rgba(242,241,246,0.72)">'+usd(e.bal)+'</div></div>';
 }
 function treRender(){
   var net=treR2(TRE.revenue-TRE.cost), grown=treR2(TRE.balance-TRE.seed);
@@ -1633,13 +1682,19 @@ function treRender(){
   document.getElementById('treCost').textContent=usd(TRE.cost);
   var n=document.getElementById('treNet'); n.textContent=(net>=0?'':'−')+usd(Math.abs(net)); n.style.color=net>=0?'#A9EFC8':'#FFB3AC';
   document.getElementById('treCap').textContent=TRE.capacity.toFixed(1)+'×';
+  var now=document.getElementById('treNow');
+  if(TRE.events.length){ var e0=TRE.events[0]; now.style.display='block';
+    now.innerHTML = e0.dir==='in'
+      ? '▸ <b style="color:#F2F1F6">'+esc(e0.who)+'</b> just paid Otto '+usd(e0.amount)+' for <b style="color:#F2F1F6">'+esc(e0.detail)+'</b>'
+      : '▸ Otto hired <b style="color:#F2F1F6">'+esc(e0.who)+'</b> ('+usd(e0.amount)+') for a '+esc(e0.detail);
+  } else now.style.display='none';
   var max=Math.max.apply(null,TRE.history.concat([TRE.seed*1.2])), min=Math.min.apply(null,TRE.history);
   document.getElementById('treChart').innerHTML=TRE.history.map(function(v,i){
     var h=8+((v-min)/Math.max(max-min,0.01))*130;
     return '<div class="treBar'+(i===TRE.history.length-1?' last':'')+'" style="height:'+h+'px"></div>';
   }).join('');
   document.getElementById('treFeed').innerHTML=TRE.events.length
-    ? TRE.events.map(function(e){ return feedRow({ label:e.label, amount:(e.k==='in'?'+':'−')+usd(e.amt), dir:e.k, tx:e.tx, time:'settled' }); }).join('')
+    ? TRE.events.map(treLedgerRow).join('')
     : '<div style="font-size:12px;color:rgba(242,241,246,0.4);padding:16px 0;text-align:center">Press play — watch Otto earn, hire, and compound.</div>';
   document.getElementById('treFlywheel').innerHTML=TRE_FLY.map(function(lab,i){
     var on = (TRE.timer && i===TRE.spoke) ? ' on' : '';
