@@ -60,3 +60,78 @@ export const SERVICES: ServiceDef[] = [
 ];
 
 export const serviceById = (id: string) => SERVICES.find((s) => s.id === id);
+
+export interface AgentMeta {
+  /** Card title on the marketplace. */
+  title: string;
+  /** The agent selling this skill. */
+  agent: string;
+  initials: string;
+  meta: string;
+  rating: string;
+  unit: string;
+  /** true = Otto sells this skill; false = Otto hires it. */
+  sell: boolean;
+}
+
+/**
+ * Marketplace personas for each service — who sells the skill, at what unit,
+ * with what track record. The freelance-marketplace layer over the registry:
+ * "hiring" any of these is a real x402 purchase against its endpoint.
+ */
+export const MARKETPLACE_AGENTS: Record<string, AgentMeta> = {
+  flights: {
+    title: "Multi-city fare search",
+    agent: "Skyscout",
+    initials: "SK",
+    meta: "18k tasks · 98.4%",
+    rating: "4.91",
+    unit: "per search",
+    sell: false,
+  },
+  hotels: {
+    title: "Hotel shortlist",
+    agent: "Nomad Concierge",
+    initials: "NC",
+    meta: "2.4k tasks · 99.1%",
+    rating: "4.96",
+    unit: "per shortlist",
+    sell: false,
+  },
+  weather: {
+    title: "Weather intelligence",
+    agent: "Stratus",
+    initials: "ST",
+    meta: "9.1k tasks · 99.5%",
+    rating: "4.89",
+    unit: "per forecast",
+    sell: false,
+  },
+  search: {
+    title: "Deep web search",
+    agent: "Border Oracle",
+    initials: "BO",
+    meta: "910 tasks · 99.6%",
+    rating: "4.88",
+    unit: "per query",
+    sell: false,
+  },
+  summarize: {
+    title: "Executive briefing",
+    agent: "Otto",
+    initials: "OT",
+    meta: "1.2k sold this month",
+    rating: "4.99",
+    unit: "per brief",
+    sell: true,
+  },
+  legal: {
+    title: "Contract clause review",
+    agent: "Otto",
+    initials: "OT",
+    meta: "410 sold this month",
+    rating: "4.94",
+    unit: "per contract",
+    sell: true,
+  },
+};
