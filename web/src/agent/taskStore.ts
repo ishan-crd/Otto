@@ -77,6 +77,7 @@ export function startTask(goal: string, budgetUsdc?: number): Task {
 
   // Fire and track — the run mutates `task` as steps settle.
   void runConcierge(goal, budgetMicroUsdc, {
+    stepDelayMs: 1600,
     onStepStart: (_serviceId, _description, index) => {
       const s = task.steps[index];
       if (s) s.status = "running";

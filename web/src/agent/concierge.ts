@@ -28,7 +28,15 @@ export interface ConciergeProgress {
   onStepStart?: (serviceId: string, description: string, index: number, total: number) => void;
   /** Fired after a step's payment settled and the work came back. */
   onStepDone?: (step: ConciergeStep, index: number, total: number) => void;
+  /**
+   * Pace between steps (ms) so watchers see the pipeline progress live instead
+   * of every step settling in the same instant. 0 (default) = full speed —
+   * tests and programmatic callers stay fast.
+   */
+  stepDelayMs?: number;
 }
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
  * Otto's brain. Given a goal and a budget, it:
@@ -51,8 +59,10 @@ export async function runConcierge(
   const steps: ConciergeStep[] = [];
   let blocked: string | null = null;
 
+  const pace = progress?.stepDelayMs ?? 0;
   for (const [i, { service, input }] of plan.steps.entries()) {
     progress?.onStepStart?.(service.id, service.description, i, plan.steps.length);
+    if (pace > 0) await sleep(pace * 0.55); // let the "running" state be seen
     try {
       const { data, receipt } = await payAndFetch(`${config.selfUrl}${service.path}`, {
         taskId,
@@ -68,6 +78,7 @@ export async function runConcierge(
       };
       steps.push(step);
       progress?.onStepDone?.(step, i, plan.steps.length);
+      if (pace > 0 && i < plan.steps.length - 1) await sleep(pace * 0.45);
     } catch (err) {
       if (err instanceof PaymentBlockedError) {
         blocked = err.message; // firewall stopped Otto — the emergency brake

@@ -490,7 +490,7 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
           <div style="position:relative;margin-top:22px;height:5px;border-radius:5px;background:rgba(255,255,255,0.07);overflow:hidden"><div id="taskProg" style="width:58%;height:100%;border-radius:5px;background:linear-gradient(90deg,#8F87F1,#DAD5FF);position:relative;overflow:hidden;transition:width .5s ease"><div style="position:absolute;top:0;left:0;width:34%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.75),transparent);animation:ottoSweep 2.4s linear infinite"></div></div></div>
           <div style="position:relative;display:flex;flex-direction:column;margin-top:22px" id="steps"></div>
           <div id="taskBlocked" style="position:relative;display:none;margin-top:16px;padding:13px 15px;border-radius:14px;border:1px solid rgba(255,190,110,0.28);background:rgba(255,190,110,0.07);font-size:12.5px;color:#FFD08A"></div>
-          <div style="position:relative;display:flex;align-items:center;gap:10px;margin-top:20px"><button class="btnPri">Approve final booking</button><button class="btnGhost">Pause Otto</button><div id="taskFoot" style="margin-left:auto;font-size:11.5px;color:rgba(242,241,246,0.32)">Auto-approves in 4m 12s</div></div>
+          <div style="position:relative;display:flex;align-items:center;gap:10px;margin-top:20px"><button class="btnPri" id="taskSummaryBtn">See summary</button><button class="btnGhost" id="taskPdfBtn">Transactions (PDF)</button><div id="taskFoot" style="margin-left:auto;font-size:11.5px;color:rgba(242,241,246,0.32)"></div></div>
         </section>
         <div style="display:flex;flex-direction:column;gap:18px">
           <section class="hero" style="padding:22px;background:linear-gradient(160deg,rgba(169,160,255,0.12),rgba(255,255,255,0.02) 60%)">
@@ -930,6 +930,11 @@ document.addEventListener('click', function(e){
   var rule=e.target.closest('[data-rule]'); if(rule){ var i=parseInt(rule.getAttribute('data-rule'),10); state.rules[i]=!state.rules[i]; renderRules(); return; }
   var pol=e.target.closest('[data-policy]'); if(pol){ togglePolicy(pol.getAttribute('data-policy')); return; }
   var bud=e.target.closest('[data-budget]'); if(bud){ setBudget(parseFloat(bud.getAttribute('data-budget')), true); return; }
+  if (e.target.closest('#runBtn')){ runTask(); return; }
+  if (e.target.closest('#earnBtn')){ simulateSale(); return; }
+  if (e.target.closest('#taskSummaryBtn')){ openSummary(); return; }
+  if (e.target.closest('#taskPdfBtn')){ downloadTaskPdf(); return; }
+  if (e.target.closest('#sumClose')){ document.getElementById('sumOverlay').style.display='none'; return; }
   // close the wallet popover on any outside click
   if (state.popOpen && !e.target.closest('#walletWrap')){ state.popOpen=false; document.getElementById('walletPop').style.display='none'; }
 });
@@ -1793,9 +1798,77 @@ function treInit(){
 }
 treInit();
 
-document.getElementById('runBtn').addEventListener('click', runTask);
-document.getElementById('goalInput').addEventListener('keydown', function(e){ if(e.key==='Enter') runTask(); });
-document.getElementById('earnBtn').addEventListener('click', simulateSale);
+// ── Task summary modal + PDF transaction ledger ──────────────────────────────
+function sumRow(l,r,color){ return '<div style="display:flex;justify-content:space-between;gap:14px;font-size:12.5px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.05)"><span style="color:rgba(242,241,246,0.55);min-width:0">'+l+'</span><span class="mono" style="flex:none;color:'+(color||'#F2F1F6')+'">'+r+'</span></div>'; }
+function openSummary(){
+  var t = state.task;
+  if (!t){ toast('Run a task first — give Otto a goal on the Marketplace page.'); return; }
+  document.getElementById('sumGoal').textContent = t.goal;
+  var html='';
+  var statusCol = t.status==='done' ? '#A9EFC8' : t.status==='blocked' ? '#FFB3AC' : '#C8C1FF';
+  html += sumRow('Status', t.status.toUpperCase(), statusCol);
+  html += sumRow('Agents hired', String(t.steps.filter(function(s){return s.txId;}).length));
+  html += sumRow('Total spent', usd(t.spentMicroUsdc/1e6)+' of '+usd(t.budgetMicroUsdc/1e6)+' budget', '#C8C1FF');
+  html += '<div style="font-size:11px;letter-spacing:0.08em;color:rgba(242,241,246,0.4);margin:16px 0 4px">WHAT OTTO BOUGHT & WHY</div>';
+  for (var i=0;i<t.steps.length;i++){
+    var s=t.steps[i]; var who=agentName(s.serviceId);
+    var why = s.status==='paid' ? ('Hired <b>'+esc(who)+'</b> — '+esc(s.description)+'.') : s.status==='blocked' ? 'Blocked by the spend firewall before payment.' : 'Queued (not purchased).';
+    html += '<div style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05)">'
+      +'<div style="display:flex;justify-content:space-between;gap:12px"><span style="font-size:12.5px">'+(i+1)+'. '+why+'</span>'
+      +'<span class="mono" style="flex:none;font-size:12.5px;color:'+(s.priceMicroUsdc!=null?'#C8C1FF':'rgba(242,241,246,0.3)')+'">'+(s.priceMicroUsdc!=null?('−'+usd(s.priceMicroUsdc/1e6)):'—')+'</span></div>'
+      +(s.txId?'<div class="mono" style="font-size:10px;color:rgba(242,241,246,0.3);margin-top:4px">tx '+esc(s.txId)+'</div>':'')
+      +'</div>';
+  }
+  // trip outcome, when present
+  var fl=null,ho=null;
+  for (var j=0;j<t.steps.length;j++){ var o=t.steps[j].output; if(!o) continue; if(t.steps[j].serviceId==='flights') fl=o; if(t.steps[j].serviceId==='hotels') ho=o; }
+  if (fl && fl.cheapest) html += '<div style="margin-top:14px;padding:12px 14px;border-radius:13px;border:1px solid rgba(143,227,180,0.2);background:rgba(143,227,180,0.06);font-size:12.5px;color:rgba(242,241,246,0.75)">Otto\u2019s pick: fly <b>'+esc(fl.cheapest.airline||'')+'</b> (~$'+fl.cheapest.priceUsd+')'+(ho&&ho.cheapest?(', stay at <b>'+esc(ho.cheapest.name||'')+'</b> (~$'+ho.cheapest.perNightUsd+'/night)'):'')+'.</div>';
+  if (t.blocked) html += '<div style="margin-top:14px;padding:12px 14px;border-radius:13px;border:1px solid rgba(255,140,130,0.26);background:rgba(255,120,110,0.08);font-size:12.5px;color:#FFD0CA">🛑 '+esc(t.blocked)+'</div>';
+  document.getElementById('sumBody').innerHTML = html;
+  document.getElementById('sumOverlay').style.display='flex';
+}
+async function downloadTaskPdf(){
+  var t = state.task;
+  if (!t){ toast('Run a task first — give Otto a goal on the Marketplace page.'); return; }
+  var btn=document.getElementById('taskPdfBtn'); var lbl=btn.textContent; btn.disabled=true; btn.textContent='Building PDF…';
+  try{
+    var jsPDF = (await import('https://esm.sh/jspdf@2.5.2')).jsPDF;
+    var doc = new jsPDF();
+    var y=18;
+    doc.setFont('helvetica','bold'); doc.setFontSize(16); doc.text('Otto — Transaction Ledger', 14, y); y+=8;
+    doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(90);
+    doc.text('Task: '+t.goal.slice(0,80), 14, y); y+=5;
+    doc.text('Task ID: '+t.id, 14, y); y+=5;
+    doc.text('Date: '+new Date(t.createdAt).toLocaleString()+'   ·   Status: '+t.status.toUpperCase(), 14, y); y+=5;
+    doc.text('Settlement: x402 micropayments · USDC · Algorand', 14, y); y+=9;
+    doc.setTextColor(0); doc.setFont('helvetica','bold'); doc.setFontSize(10);
+    doc.text('#',14,y); doc.text('Service / Agent',22,y); doc.text('Transaction ID',105,y); doc.text('Amount (USDC)',196,y,{align:'right'}); y+=2;
+    doc.setDrawColor(180); doc.line(14,y,196,y); y+=6;
+    doc.setFont('helvetica','normal'); doc.setFontSize(9);
+    var total=0, n=0;
+    for (var i=0;i<t.steps.length;i++){
+      var s=t.steps[i]; if(!s.txId) continue; n++;
+      var amt=(s.priceMicroUsdc||0)/1e6; total+=amt;
+      doc.text(String(n),14,y);
+      doc.text((agentName(s.serviceId)+' — '+s.description).slice(0,52),22,y);
+      doc.text(String(s.txId).slice(0,34),105,y);
+      doc.text(amt.toFixed(4),196,y,{align:'right'});
+      y+=6;
+      if (y>270){ doc.addPage(); y=20; }
+    }
+    y+=2; doc.setDrawColor(180); doc.line(14,y,196,y); y+=7;
+    doc.setFont('helvetica','bold'); doc.setFontSize(10);
+    doc.text('Total spent',22,y); doc.text(total.toFixed(4)+' USDC',196,y,{align:'right'}); y+=6;
+    doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(90);
+    doc.text('Budget: '+(t.budgetMicroUsdc/1e6).toFixed(2)+' USDC   ·   Remaining: '+((t.budgetMicroUsdc-t.spentMicroUsdc)/1e6).toFixed(4)+' USDC',22,y); y+=10;
+    doc.setFontSize(8); doc.text('Generated by Otto — the AI that earns its keep. Every payment settled over the x402 protocol.',14,y);
+    doc.save('otto-transactions-'+t.id.slice(0,8)+'.pdf');
+  }catch(e){ toast('PDF failed: '+esc(String(e))); }
+  finally{ btn.disabled=false; btn.textContent=lbl; }
+}
+document.getElementById('sumOverlay').addEventListener('click', function(e){ if(e.target===this) this.style.display='none'; });
+
+document.addEventListener('keydown', function(e){ if(e.key==='Enter' && e.target && e.target.id==='goalInput') runTask(); });
 
 renderNav(); renderMktChart(); renderGigs(); renderFeed(); renderTaskIdle(); renderRails(); renderLedger(); renderRules();
 try { state.walletConnected = localStorage.getItem('ottoWalletConnected')==='1'; } catch(_){}
@@ -1808,6 +1881,16 @@ pollWallet(); pollLedger(); pollStats(); pollPolicy(); pollLiveInfo();
 pollLiveStatus();
 loadMarketplace(); setTimeout(renderTrusted, 900);
 </script>
+
+<div id="sumOverlay" style="display:none;position:fixed;inset:0;z-index:80;background:rgba(6,6,8,0.72);backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:24px">
+  <div style="width:100%;max-width:620px;max-height:82vh;overflow:auto;border-radius:24px;border:1px solid rgba(255,255,255,0.1);background:linear-gradient(160deg,rgba(26,26,32,0.98),rgba(16,16,20,0.98));padding:26px;animation:ottoRise .25s both">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:14px">
+      <div><div style="font-size:11px;letter-spacing:0.1em;color:rgba(242,241,246,0.42)">TASK SUMMARY</div><div id="sumGoal" style="font-size:19px;font-weight:600;letter-spacing:-0.02em;margin-top:6px"></div></div>
+      <button class="btnGhost" id="sumClose" style="height:34px;padding:0 13px;font-size:12px;flex:none">✕ Close</button>
+    </div>
+    <div id="sumBody" style="margin-top:16px"></div>
+  </div>
+</div>
 
 <div id="toast" style="display:none;position:fixed;bottom:28px;left:50%;transform:translateX(-50%);z-index:90;align-items:center;gap:11px;padding:14px 18px;border-radius:18px;border:1px solid rgba(143,227,180,0.22);background:rgba(20,26,23,0.9);backdrop-filter:blur(28px);box-shadow:0 20px 44px -18px rgba(0,0,0,0.9);animation:ottoRise .3s both">
   <div id="toastText" style="font-size:13px;color:rgba(242,241,246,0.85)"></div>

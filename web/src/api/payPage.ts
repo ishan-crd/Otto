@@ -284,7 +284,7 @@ function renderWallet(){
   var optPill = S.optedIn ? '<span class="pill pOk">OPTED IN</span>' : '<span class="pill pWarn">NOT OPTED IN</span>';
   var optBtn = S.optedIn ? '' : '<button class="btn ghost" id="optBtn" style="height:38px;margin-top:12px">Opt in to USDC</button>';
   el('walletBody').innerHTML =
-    '<div class="row" style="padding-top:0"><div style="flex:1"><div class="mono" style="font-size:13.5px">'+short(S.address)+'</div><div style="font-size:11px;color:rgba(242,241,246,0.4);margin-top:3px">'+S.wallet.label+' · TestNet</div></div>'+optPill+'<button class="btn ghost" id="dcBtn" style="height:32px;padding:0 12px;font-size:12px">Disconnect</button></div>'
+    '<div class="row" style="padding-top:0"><div style="flex:1;min-width:0"><div class="mono" style="font-size:11.5px;line-height:1.5;word-break:break-all">'+S.address+'</div><div style="font-size:11px;color:rgba(242,241,246,0.4);margin-top:3px">'+S.wallet.label+' · TestNet</div></div>'+optPill+'<button class="btn ghost" id="dcBtn" style="height:32px;padding:0 12px;font-size:12px">Disconnect</button></div>'
     +'<div class="stat"><div><div class="l">ALGO</div><div class="v">'+S.balAlgo.toFixed(3)+'</div></div><div><div class="l">USDC</div><div class="v" style="color:var(--grn2)">'+S.balUsdc.toFixed(3)+'</div></div></div>'+optBtn;
   el('dcBtn').onclick=disconnect;
   if (el('optBtn')) el('optBtn').onclick=optInUser;
